@@ -63,6 +63,16 @@ fun ReviewScreen(studio: StudioViewModel) {
     val student = cls?.students?.firstOrNull { it.no == cap.no }
     val s = cap.session
     var autoStopped by remember(cap) { mutableStateOf(false) }
+    val ctxR = androidx.compose.ui.platform.LocalContext.current
+    val exifDir by produceState(-1, cap) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                ctxR.contentResolver.openInputStream(cap.source)?.use {
+                    androidx.exifinterface.media.ExifInterface(it).getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, -1)
+                } ?: -1
+            } catch (e: Throwable) { -1 }
+        }
+    }
     val preview = rememberPreview(s, studio.settings)
     val quality by produceState<Quality.Report?>(null, s, s?.box, s?.loading) {
         val ss = s
@@ -181,7 +191,7 @@ fun ReviewScreen(studio: StudioViewModel) {
                     Text("Kalite hesaplanıyor…", color = Dim, fontSize = 12.sp)
                 }
                 Spacer(Modifier.weight(1f))
-                Text("${TARGET_W}×${TARGET_H} px · ${"%.1f".format(kbNow)} KB", color = Dim, fontSize = 12.sp)
+                Text("${TARGET_W}×${TARGET_H} px · ${"%.1f".format(kbNow)} KB · yön $exifDir", color = Dim, fontSize = 12.sp)
             }
             if (warnings.isNotEmpty()) {
                 Column(

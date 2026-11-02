@@ -28,6 +28,8 @@ data class Settings(
     val autoHoldMs: Int = 1200,
     /** Akıllı çekim: göz açıklığı, netlik, telefon hareketi denetimi ve 3 kareden en iyisini seçme. */
     val smartShot: Boolean = true,
+    /** Kamerayla çekilen fotoğrafı sağ-sol çevir (bazı telefonlarda fotoğraf önizlemeye göre ters kaydedilirse). */
+    val flipCapture: Boolean = false,
     /** Kalite puanı eşiğin üstünde ve uyarı yoksa onay beklemeden kaydet. */
     val autoAccept: Boolean = true,
     val autoAcceptScore: Int = 80,
@@ -74,6 +76,7 @@ class Prefs(context: Context) {
             autoTol = (sp.getString("autoTol", null)?.toDoubleOrNull() ?: d.autoTol).coerceIn(0.5, 2.0),
             autoHoldMs = sp.getInt("autoHoldMs", d.autoHoldMs).coerceIn(400, 4000),
             smartShot = sp.getBoolean("smartShot", d.smartShot),
+            flipCapture = sp.getBoolean("flipCapture", d.flipCapture),
             autoAccept = sp.getBoolean("autoAccept", d.autoAccept),
             autoAcceptScore = sp.getInt("autoAcceptScore", d.autoAcceptScore).coerceIn(60, 95),
             pinHash = sp.getString("pinHash", null)?.takeIf { it.isNotBlank() },
@@ -98,6 +101,7 @@ class Prefs(context: Context) {
             .putString("autoTol", s.autoTol.toString())
             .putInt("autoHoldMs", s.autoHoldMs)
             .putBoolean("smartShot", s.smartShot)
+            .putBoolean("flipCapture", s.flipCapture)
             .putBoolean("autoAccept", s.autoAccept)
             .putInt("autoAcceptScore", s.autoAcceptScore)
             .putString("pinHash", s.pinHash)

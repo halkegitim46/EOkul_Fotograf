@@ -106,7 +106,7 @@ class PersonMask(val w: Int, val h: Int, val data: FloatArray)
 
 object ImageOps {
     /** Çalışma görüntüsünün en uzun kenarı (bellek için); çıktı yalnızca 133x171 olduğundan yeterlidir. */
-    const val MAX_SIDE = 2400
+    const val MAX_SIDE = 2000
     const val THUMB_W = 160
     val THUMB_H: Int = (THUMB_W * TARGET_H.toDouble() / TARGET_W).roundToInt()
     private const val DETECT_SIDE = 1280

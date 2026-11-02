@@ -15,6 +15,15 @@ import java.util.Locale
 object Diag {
     private const val FILE = "son_hata.txt"
 
+    /** Anlık bellek durumu: Java yığını (kullanılan / sınır) ve yerel bellek, MB. */
+    fun memInfo(): String {
+        val rt = Runtime.getRuntime()
+        val usedMb = (rt.totalMemory() - rt.freeMemory()) / 1048576
+        val maxMb = rt.maxMemory() / 1048576
+        val nativeMb = android.os.Debug.getNativeHeapAllocatedSize() / 1048576
+        return "Java yığını $usedMb/$maxMb MB, yerel $nativeMb MB"
+    }
+
     fun install(ctx: Context) {
         val app = ctx.applicationContext
         val prev = Thread.getDefaultUncaughtExceptionHandler()
@@ -23,6 +32,7 @@ object Diag {
                 val sb = StringBuilder()
                 sb.append(SimpleDateFormat("d MMM HH:mm:ss", Locale("tr")).format(Date())).append("  iş parçacığı: ").append(t.name).append('\n')
                 sb.append(e.toString()).append('\n')
+                sb.append(memInfo()).append('\n')
                 e.stackTrace.take(14).forEach { sb.append("  at ").append(it.toString()).append('\n') }
                 var c = e.cause
                 var depth = 0

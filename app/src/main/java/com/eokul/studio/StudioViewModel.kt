@@ -500,20 +500,21 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                     val bmp = ImageOps.decode(ctx, source)
                     val px = ImageOps.pixels(bmp)
                     val faces = ImageOps.detectFaces(bmp, px)
-                    Triple(bmp, px, faces)
+                    val dims = Pair(bmp.width, bmp.height)
+                    bmp.recycle()   // inceleme için yalnızca piksel dizisi gerekir (≈17 MB tasarruf); düzenleyici açılınca yeniden üretilir
+                    Triple(dims, px, faces)
                 }
-                val bmp = r.first
+                val dims = r.first
                 val px = r.second
                 val faces = r.third
                 val s = EditSession(no)
-                s.bitmap = bmp
                 s.pixels = px
-                s.iw = bmp.width
-                s.ih = bmp.height
+                s.iw = dims.first
+                s.ih = dims.second
                 val box = if (savedBox != null) {
-                    savedBox.fitInside(bmp.width, bmp.height)
+                    savedBox.fitInside(dims.first, dims.second)
                 } else {
-                    ImageOps.defaultBox(bmp.width, bmp.height, faces.firstOrNull(), set)
+                    ImageOps.defaultBox(dims.first, dims.second, faces.firstOrNull(), set)
                 }
                 s.box = box
                 s.startBox = box
@@ -525,7 +526,8 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                cap.error = e.message ?: e.javaClass.simpleName
+                cap.error = (e.message ?: e.javaClass.simpleName) +
+                    if (e is OutOfMemoryError) " · " + Diag.memInfo() else ""
                 cap.loading = false
             }
         }
@@ -541,16 +543,29 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     fun openCaptureEditor() {
         val s = capture?.session ?: return
         s.startBox = s.box
+        if (s.bitmap == null) {
+            val px = s.pixels
+            if (px != null) {
+                try {
+                    s.bitmap = android.graphics.Bitmap.createBitmap(px, s.iw, s.ih, android.graphics.Bitmap.Config.ARGB_8888)
+                } catch (e: OutOfMemoryError) {
+                    say("Düzenleyici için bellek yetersiz: " + Diag.memInfo())
+                    return
+                }
+            }
+        }
         navigate(Screen.CaptureEditor)
     }
 
     fun cancelCaptureEditor() {
         capture?.session?.let { it.box = it.startBox }
         if (screen == Screen.CaptureEditor) back()
+        capture?.session?.bitmap = null   // düzenleyiciden çıkınca büyük bitmap serbest kalır
     }
 
     fun applyCaptureEditor() {
         if (screen == Screen.CaptureEditor) back()
+        capture?.session?.bitmap = null
     }
 
     fun captureEditorPickFace(index: Int) {

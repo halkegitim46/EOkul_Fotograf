@@ -63,6 +63,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     var autoTol by remember { mutableStateOf(cur.autoTol.toFloat()) }
     var autoHold by remember { mutableStateOf(cur.autoHoldMs.toFloat()) }
     var smart by remember { mutableStateOf(cur.smartShot) }
+    var flipCap by remember { mutableStateOf(cur.flipCapture) }
     var autoAcc by remember { mutableStateOf(cur.autoAccept) }
     var accScore by remember { mutableStateOf(cur.autoAcceptScore.toFloat()) }
     var keepOrig by remember { mutableStateOf(cur.keepOriginals) }
@@ -91,6 +92,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             autoHoldMs = ((autoHold / 100f).roundToInt() * 100).coerceIn(400, 4000),
             keepOriginals = keepOrig,
             smartShot = smart,
+            flipCapture = flipCap,
             autoAccept = autoAcc,
             autoAcceptScore = accScore.roundToInt().coerceIn(60, 95),
             topGap = (topGap * 100.0).roundToInt() / 100.0,
@@ -147,6 +149,15 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         }
         Text(
             "Gözler kapalıysa, görüntü net değilse veya telefon sallanıyorsa çekimi bekletir; her çekimde 3 kare alıp en netini seçer (çekim yaklaşık 1 sn sürer).",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.size(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(checked = flipCap, onCheckedChange = { flipCap = it })
+            Text("  Çekilen fotoğrafı sağ-sol çevir", style = MaterialTheme.typography.bodyMedium)
+        }
+        Text(
+            "Telefonunuzda fotoğraf çekimden sonra ters (aynalı) görünüyorsa açın. Yalnızca kamerayla çekilenleri etkiler, galeriden seçilenleri değil.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(8.dp))

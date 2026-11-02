@@ -217,7 +217,15 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                     camera = provider.bindToLifecycle(activity, cs, preview, imageCapture, analysis)
                     val mirror = !lensBack
                     var frameNo = 0
+                    var lastAnalysisMs = 0L
                     analysis.setAnalyzer(analysisExecutor) { proxy ->
+                        // Saniyede ~12 kare yeterli: bellek hareketi ve ısınma azalır
+                        val tNow = System.currentTimeMillis()
+                        if (tNow - lastAnalysisMs < 80L) {
+                            proxy.close()
+                            return@setAnalyzer
+                        }
+                        lastAnalysisMs = tNow
                         // Bu iş parçacığında ML Kit sonucu senkron beklenir: dinleyici/yürütücü yoktur, ekran kapanırken
                         // reddedilen görev (RejectedExecutionException) çökmesi olmaz; her durumda kare kapatılır.
                         var bmpRef: android.graphics.Bitmap? = null
@@ -228,7 +236,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                             val uw = (if (rot % 180 == 0) bmp.width else bmp.height).toFloat()
                             val uh = (if (rot % 180 == 0) bmp.height else bmp.width).toFloat()
                             frameNo++
-                            val measureNow = frameNo % 3 == 0
+                            val measureNow = frameNo % 2 == 0
                             val faces = com.google.android.gms.tasks.Tasks.await(
                                 LiveFaces.detector.process(InputImage.fromBitmap(bmp, rot)),
                                 2, TimeUnit.SECONDS
@@ -319,6 +327,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         dir.mkdirs()
         val stamp = System.currentTimeMillis()
         val total = if (studio.settings.smartShot) 3 else 1
+        val flip = studio.settings.flipCapture
         val shots = ArrayList<BurstPick.Shot>()
         previewView.display?.let { imageCapture.targetRotation = it.rotation }
         try { sound.play(MediaActionSound.SHUTTER_CLICK) } catch (_: Throwable) { }
@@ -328,6 +337,14 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
             val list = ArrayList(shots)
             Thread {
                 val best = try { BurstPick.pickBest(list) } catch (e: Throwable) { list[0].file }
+                if (flip) {
+                    // EXIF yönünü sağ-sol çevir (kayıpsız; resim verisi yeniden sıkıştırılmaz)
+                    try {
+                        val ei = androidx.exifinterface.media.ExifInterface(best.absolutePath)
+                        ei.flipHorizontally()
+                        ei.saveAttributes()
+                    } catch (_: Throwable) { }
+                }
                 ContextCompat.getMainExecutor(ctx).execute {
                     capturing = false
                     if (studio.screen is Screen.Camera) {
@@ -577,6 +594,10 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                         Spacer(Modifier.size(8.dp))
                         ModeChip("Akıllı", studio.settings.smartShot) {
                             studio.updateSettings(studio.settings.copy(smartShot = !studio.settings.smartShot))
+                        }
+                        Spacer(Modifier.size(8.dp))
+                        ModeChip("Sağ-sol çevir", studio.settings.flipCapture) {
+                            studio.updateSettings(studio.settings.copy(flipCapture = !studio.settings.flipCapture))
                         }
                         Slider(
                             value = zoom, onValueChange = { zoom = it }, valueRange = 0f..0.6f,
