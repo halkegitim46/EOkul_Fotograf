@@ -22,15 +22,15 @@ android {
 
     // İmza bilgileri kaynak kodda DEĞİL, ortam değişkenlerinde (GitHub Secrets) tutulur.
     // Anahtar yoksa release sürümü Android'in debug anahtarıyla imzalanır (kurulur ama her derlemede imza değişir).
-    val ksFile = System.getenv("EOKUL_KEYSTORE_FILE")
-    val hasReleaseKey = ksFile != null && file(ksFile).exists() && System.getenv("EOKUL_KEYSTORE_PASSWORD") != null
+    val ksFile = System.getenv("KEYSTORE_FILE")
+    val hasReleaseKey = ksFile != null && file(ksFile).exists() && System.getenv("KEYSTORE_PASSWORD") != null
     signingConfigs {
         if (hasReleaseKey) {
             create("eokulRelease") {
                 storeFile = file(ksFile!!)
-                storePassword = System.getenv("EOKUL_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("EOKUL_KEY_ALIAS") ?: "eokul"
-                keyPassword = System.getenv("EOKUL_KEY_PASSWORD") ?: System.getenv("EOKUL_KEYSTORE_PASSWORD")
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS") ?: "eokul"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
             }
         }
     }

@@ -29,7 +29,7 @@ derlemede imza değiştiği için yeni sürüm eskisinin üstüne kurulmaz; önc
 1. **Actions → "Imza anahtari uret (bir kez)" → Run workflow** (yalnızca özel depoda).
 2. Bitince çalıştırmanın **Artifacts → imza-anahtari** dosyasını indir (`eokul-anahtar.b64.txt`).
 3. **Settings → Secrets and variables → Actions** altında şu gizli değişkenleri oluştur (değerleri dosyadan kopyala):
-   `EOKUL_KEYSTORE_BASE64`, `EOKUL_KEYSTORE_PASSWORD`, `EOKUL_KEY_ALIAS`, `EOKUL_KEY_PASSWORD`.
+   `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 4. Anahtar üretme çalıştırmasını ve yüklenen artefaktı sil. Anahtarı güvenli bir yerde ayrıca sakla: kaybedersen
    uygulama güncellemeleri eski kurulumların üstüne kurulamaz.
 

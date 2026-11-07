@@ -33,25 +33,25 @@ jobs:
 
       - name: İmza anahtarını hazırla
         env:
-          KS_B64: ${{ secrets.EOKUL_KEYSTORE_BASE64 }}
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KS_B64" ]; then
             echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/eokul.jks"
-            echo "EOKUL_KEYSTORE_FILE=$RUNNER_TEMP/eokul.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/eokul.jks" >> "$GITHUB_ENV"
           else
-            echo "::warning::EOKUL_KEYSTORE_BASE64 gizli değişkeni yok; APK debug anahtarıyla imzalanacak (güncellemeler eskisinin üstüne kurulmaz)."
+            echo "::warning::KEYSTORE_BASE64 gizli değişkeni yok; APK debug anahtarıyla imzalanacak (güncellemeler eskisinin üstüne kurulmaz)."
           fi
 
       - name: Release APK derle
         env:
-          EOKUL_KEYSTORE_PASSWORD: ${{ secrets.EOKUL_KEYSTORE_PASSWORD }}
-          EOKUL_KEY_ALIAS: ${{ secrets.EOKUL_KEY_ALIAS }}
-          EOKUL_KEY_PASSWORD: ${{ secrets.EOKUL_KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: İmzayı doğrula
         env:
-          KS_B64: ${{ secrets.EOKUL_KEYSTORE_BASE64 }}
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | tee imza.txt
