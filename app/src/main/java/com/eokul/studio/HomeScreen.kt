@@ -157,7 +157,7 @@ fun HomeScreen(studio: StudioViewModel) {
                 }
             }
             Text(
-                "Hazırlayan: Hacimd",
+                "Copyright © 2026 Hacimd. All rights reserved.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),

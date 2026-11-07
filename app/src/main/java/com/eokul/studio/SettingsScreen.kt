@@ -309,10 +309,19 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(20.dp))
+        val appCtx = androidx.compose.ui.platform.LocalContext.current
+        val version = remember {
+            try { appCtx.packageManager.getPackageInfo(appCtx.packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
+        }
         Text(
-            "E-Okul Foto Studio · Hazırlayan: Hacimd",
+            "E-Okul Foto Studio" + if (version.isNotEmpty()) " · Sürüm $version" else "",
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Text(
+            "Copyright © 2026 Hacimd. All rights reserved.",
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(Modifier.size(24.dp))
     }

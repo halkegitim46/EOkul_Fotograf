@@ -11,16 +11,29 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -75,9 +88,10 @@ fun SheetScreen(studio: StudioViewModel, classId: String) {
         return
     }
     var onlyMissing by remember { mutableStateOf(false) }
-    var selected by remember { mutableStateOf<Student?>(null) }
+    var viewer by remember { mutableStateOf<Int?>(null) }
     val shown = if (onlyMissing) cls.students.filter { !it.captured } else cls.students
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 2.dp) {
             Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -106,9 +120,9 @@ fun SheetScreen(studio: StudioViewModel, classId: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(shown, key = { it.no }) { s ->
+            itemsIndexed(shown, key = { _, st -> st.no }) { index, s ->
                 val thumb = rememberThumb(cls.id, s)
-                Column(Modifier.clickable { selected = s }) {
+                Column(Modifier.clickable { viewer = index }) {
                     Box(
                         Modifier.fillMaxWidth().aspectRatio(TARGET_W.toFloat() / TARGET_H)
                             .clip(RoundedCornerShape(6.dp))
@@ -137,42 +151,116 @@ fun SheetScreen(studio: StudioViewModel, classId: String) {
         }
     }
 
-    val sel = selected?.let { n -> cls.students.firstOrNull { it.no == n.no } }
-    if (sel != null) {
-        val thumb = rememberThumb(cls.id, sel)
-        AlertDialog(
-            onDismissRequest = { selected = null },
-            title = { Text("${sel.no} · ${sel.name}") },
-            text = {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    if (thumb != null) {
-                        Image(
-                            bitmap = thumb.asImageBitmap(), contentDescription = sel.name,
-                            filterQuality = FilterQuality.High,
-                            modifier = Modifier.height(280.dp).aspectRatio(TARGET_W.toFloat() / TARGET_H)
-                        )
-                    } else {
-                        Text("Henüz fotoğraf çekilmemiş")
-                    }
+    val vi = viewer
+    if (vi != null && shown.isNotEmpty()) {
+        PhotoPager(
+            studio = studio, classId = cls.id, list = shown, startIndex = vi,
+            onClose = { viewer = null }
+        )
+    }
+    }   // Box
+}
+
+/**
+ * Tam ekran fotoğraf gezgini: sağa-sola kaydırarak sıradaki / önceki öğrenciye geçilir. Üstte sıra ve ilerleme,
+ * altta o öğrenciye özel işlemler (çek / yeniden çek / kırpmayı düzenle) ve önceki-sonraki düğmeleri bulunur.
+ */
+@Composable
+private fun PhotoPager(
+    studio: StudioViewModel, classId: String, list: List<Student>, startIndex: Int, onClose: () -> Unit
+) {
+    val total = list.size
+    val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, total - 1)) { total }
+    val scope = rememberCoroutineScope()
+    BackHandler { onClose() }
+    val page = pager.currentPage.coerceIn(0, total - 1)
+    val cur = list[page]
+    val okColor = Color(0xFF4CC38A)
+    val warnColor = Color(0xFFE0A030)
+    val onDark = Color.White
+    val dim = Color(0xFFA9B3C4)
+
+    Column(Modifier.fillMaxSize().background(Color(0xFF0E1420))) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            BackBtn(onClick = onClose, tint = onDark)
+            Column(Modifier.weight(1f)) {
+                Text("${cur.no} · ${cur.name}", color = onDark, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val (label, col) = when {
+                    cur.retake -> "Tekrar çekilmeli" to warnColor
+                    cur.captured -> "Çekildi" to okColor
+                    else -> "Fotoğraf yok" to dim
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    selected = null
-                    studio.openCamera(cls.id, sel.no)
-                }) { Text(if (sel.captured) "Yeniden çek" else "Fotoğraf çek") }
-            },
-            dismissButton = {
-                Row {
-                    if (sel.captured) {
-                        TextButton(onClick = {
-                            selected = null
-                            studio.editSavedCrop(cls.id, sel.no)
-                        }) { Text("Kırpmayı düzenle") }
+                Text(label, color = col, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Text("${page + 1} / $total", color = dim, fontSize = 14.sp, modifier = Modifier.padding(end = 12.dp))
+        }
+        LinearProgressIndicator(
+            progress = { (page + 1f) / total },
+            color = MaterialTheme.colorScheme.primary, trackColor = Color(0xFF232D3F),
+            modifier = Modifier.fillMaxWidth()
+        )
+        HorizontalPager(
+            state = pager,
+            pageSpacing = 16.dp,
+            key = { list[it.coerceIn(0, total - 1)].no },
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) { pg ->
+            val s = list[pg.coerceIn(0, total - 1)]
+            val thumb = rememberThumb(classId, s)
+            Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+                if (thumb != null) {
+                    Image(
+                        bitmap = thumb.asImageBitmap(), contentDescription = s.name,
+                        contentScale = ContentScale.Fit, filterQuality = FilterQuality.High,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (s.captured) {
+                    CircularProgressIndicator(color = dim)
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📷", fontSize = 48.sp)
+                        Text("Henüz fotoğraf çekilmemiş", color = dim, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
                     }
-                    TextButton(onClick = { selected = null }) { Text("Kapat") }
                 }
             }
+        }
+        Text(
+            if (cur.captured) "e-Okul çıktısı · ${TARGET_W}×${TARGET_H} px · kaydırarak gezin" else "Kaydırarak gezin",
+            color = dim, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
         )
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(
+                onClick = { scope.launch { pager.animateScrollToPage(page - 1) } }, enabled = page > 0,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = onDark, disabledContentColor = Color(0xFF55607A)),
+                modifier = Modifier.heightIn(min = 52.dp)
+            ) { Text("‹ Önceki") }
+            Button(
+                onClick = {
+                    onClose()
+                    studio.openCamera(classId, cur.no)
+                },
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+            ) { Text(if (cur.captured) "Yeniden çek" else "Fotoğraf çek", fontWeight = FontWeight.Bold) }
+            OutlinedButton(
+                onClick = { scope.launch { pager.animateScrollToPage(page + 1) } }, enabled = page < total - 1,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = onDark, disabledContentColor = Color(0xFF55607A)),
+                modifier = Modifier.heightIn(min = 52.dp)
+            ) { Text("Sonraki ›") }
+        }
+        if (cur.captured) {
+            TextButton(
+                onClick = {
+                    onClose()
+                    studio.editSavedCrop(classId, cur.no)
+                },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            ) { Text("Kırpmayı düzenle", color = onDark) }
+        } else {
+            Spacer(Modifier.height(10.dp))
+        }
     }
 }
