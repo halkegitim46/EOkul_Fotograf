@@ -10,7 +10,7 @@ on:
 
 jobs:
   anahtar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Anahtar zaten tanımlıysa dur
         env:
@@ -21,7 +21,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -40,7 +40,7 @@ jobs:
             echo
           } > anahtar.b64.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: imza-anahtari
           path: anahtar.b64.txt
