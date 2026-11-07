@@ -105,7 +105,7 @@ jobs:
 
       - name: Test raporunu yükle (hata olursa)
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-raporu
           path: app/build/reports/tests/
@@ -113,13 +113,13 @@ jobs:
 
       - name: Derleme logunu yükle
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: build-log
           path: build.log
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: success()
         with:
           name: E_Okul_Foto_Studio-v${{ needs.version.outputs.version_name }}-debug-apk
@@ -218,7 +218,7 @@ jobs:
           cp "$SRC" "out/E_Okul_Foto_Studio_v${VERSION_NAME}.apk"
           ls -lh out/
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: E_Okul_Foto_Studio-v${{ needs.version.outputs.version_name }}-release-apk
           path: out/E_Okul_Foto_Studio_v*.apk
