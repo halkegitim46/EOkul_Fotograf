@@ -76,8 +76,13 @@ object Diag {
                         android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "Başlatma hatası"
                         else -> null
                     } ?: continue
+                    // Uygulama arka planda (kullanılmıyorken) bellek için kapatıldıysa bu normal bir Android davranışıdır:
+                    // veriler kayıtlıdır, kullanıcıya gösterilmez. Yalnızca ön plandayken olan kapanmalar bildirilir.
+                    val wasForeground = ei.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+                    if (ei.reason == android.app.ApplicationExitInfo.REASON_LOW_MEMORY && !wasForeground) continue
                     out.append(SimpleDateFormat("d MMM HH:mm", Locale("tr")).format(Date(ei.timestamp)))
                         .append(" · ").append(name)
+                        .append(if (wasForeground) " (uygulama açıkken)" else " (arka planda)")
                     val d = ei.description
                     if (!d.isNullOrBlank()) out.append(" — ").append(d.take(160))
                     out.append('\n')
