@@ -170,6 +170,7 @@ fun ReviewScreen(studio: StudioViewModel) {
                     Math.abs(f1.roll).toDouble(), Math.abs(f1.yaw).toDouble(), q.brightness, q.contrast, -1.0
                 )
             } else -1
+            androidx.compose.runtime.LaunchedEffect(score) { if (score >= 0) cap.score = score }
             val kbNow = (preview?.second ?: 0) / 1024.0
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (score >= 0) {

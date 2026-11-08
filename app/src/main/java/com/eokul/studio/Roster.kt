@@ -22,7 +22,9 @@ data class Student(
     val savedStem: String? = null,
     val faceCount: Int = 0,
     /** Kalite uyarısı aldığı veya elle işaretlendiği için yeniden çekilmesi gereken fotoğraf. */
-    val retake: Boolean = false
+    val retake: Boolean = false,
+    /** Son kayıttaki kalite puanı (0-100); -1 = bilinmiyor (eski kayıt veya galeriden). */
+    val score: Int = -1
 )
 
 data class SchoolClass(
@@ -178,7 +180,8 @@ class RosterStore(private val file: File) {
                             origUri = if (s.has("origUri") && !s.isNull("origUri")) s.getString("origUri") else null,
                             savedStem = if (s.has("savedStem") && !s.isNull("savedStem")) s.getString("savedStem") else null,
                             faceCount = s.optInt("faceCount"),
-                            retake = s.optBoolean("retake", false)
+                            retake = s.optBoolean("retake", false),
+                            score = s.optInt("score", -1)
                         )
                     )
                 }
@@ -203,6 +206,7 @@ class RosterStore(private val file: File) {
                         .put("updatedAt", s.updatedAt)
                         .put("faceCount", s.faceCount)
                         .put("retake", s.retake)
+                        .put("score", s.score)
                     s.box?.let { o.put("box", JSONArray(listOf(it.x1, it.y1, it.x2, it.y2))) }
                     s.origUri?.let { o.put("origUri", it) }
                     s.savedStem?.let { o.put("savedStem", it) }

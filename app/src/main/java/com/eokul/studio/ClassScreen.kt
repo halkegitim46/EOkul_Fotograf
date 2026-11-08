@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -63,7 +64,12 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class Filter { ALL, MISSING, DONE, RETAKE }
+private enum class Filter { ALL, MISSING, DONE, RETAKE, LOW }
+
+/** Bu puanın altındaki kayıtlar "düşük kalite" sayılır. */
+private const val LOW_SCORE = 70
+
+private fun Student.isLow() = captured && score in 0 until LOW_SCORE
 
 @Composable
 fun ClassScreen(studio: StudioViewModel, classId: String) {
@@ -85,7 +91,7 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
 
     val q = query.trim().lowercase()
     val shown = cls.students.filter { s ->
-        (filter == Filter.ALL || (filter == Filter.MISSING && !s.captured) || (filter == Filter.DONE && s.captured) || (filter == Filter.RETAKE && s.retake)) &&
+        (filter == Filter.ALL || (filter == Filter.MISSING && !s.captured) || (filter == Filter.DONE && s.captured) || (filter == Filter.RETAKE && s.retake) || (filter == Filter.LOW && s.isLow())) &&
             (q.isEmpty() || s.no.contains(q) || s.name.lowercase().contains(q))
     }
 
@@ -150,6 +156,17 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
                         progress = { if (total == 0) 0f else cls.capturedCount.toFloat() / total },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
                     )
+                    val scored = cls.students.filter { it.captured && it.score >= 0 }
+                    if (scored.isNotEmpty()) {
+                        val avg = scored.map { it.score }.average().toInt()
+                        val low = cls.students.count { it.isLow() }
+                        Text(
+                            "Kalite ortalaması $avg" + if (low > 0) " · $low düşük puanlı" else " · düşük puanlı yok",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (low > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -159,7 +176,7 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
             )
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
@@ -178,6 +195,11 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
                 if (retakeCount > 0) FilterChip(
                     selected = filter == Filter.RETAKE, onClick = { filter = Filter.RETAKE },
                     label = { Text("🔁 Tekrar $retakeCount") }
+                )
+                val lowCount = cls.students.count { it.isLow() }
+                if (lowCount > 0) FilterChip(
+                    selected = filter == Filter.LOW, onClick = { filter = Filter.LOW },
+                    label = { Text("⚠ Düşük $lowCount") }
                 )
             }
 
@@ -342,7 +364,7 @@ private fun StudentRow(
     val okColor = Color(0xFF3C9A5F)
     val warnColor = Color(0xFFE08A00)
     val stateColor = when {
-        s.retake -> warnColor
+        s.retake || s.isLow() -> warnColor
         s.captured -> okColor
         else -> MaterialTheme.colorScheme.outline
     }
@@ -389,7 +411,7 @@ private fun StudentRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(s.no, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    "  ·  " + if (s.retake) "tekrar çekilmeli" else if (s.captured) "çekildi" else "bekliyor",
+                    "  ·  " + if (s.retake) "tekrar çekilmeli" else if (s.captured) "çekildi" + (if (s.score >= 0) " · ${s.score}" else "") else "bekliyor",
                     style = MaterialTheme.typography.bodySmall, color = stateColor
                 )
             }

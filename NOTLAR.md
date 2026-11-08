@@ -39,3 +39,7 @@ Geri dönüş: EOkulFotoStudio-android-eski-surum-yedek.zip (8.5.2 sürümü, de
 ## 8 Kas — sağ-sol çevir artık kamera başına
 Önceki ayar ön ve arka kamera için ortaktı; arka kamera için açılınca ön kamera fotoğrafı da ters çevriliyordu.
 Şimdi `flipCapture` (arka) ve `flipFront` (ön) ayrı. EXIF yönü kendi tablomuzla yazılıp geri okunarak doğrulanıyor (logcat: etiket "EOkul").
+
+## 8 Kas — sınıf raporu
+Student.score (kalite puanı) kaydedilir (JSON "score"); sınıf ekranında ortalama + düşük puanlı (<70) sayısı, "⚠ Düşük" süzgeç çipi, satırda puan.
+Kırpma düzenleme (inceleme ekranı atlandığı için) puanı yeniden hesaplamaz; eski puan korunur. Galeriden/eski kayıtlarda puan -1 (gösterilmez).

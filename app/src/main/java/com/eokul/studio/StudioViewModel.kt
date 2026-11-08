@@ -51,6 +51,8 @@ class CaptureState(
     var saving by mutableStateOf(false)
     /** İnceleme ekranında kalite/yüz uyarısı çıktı mı (kayıtta "tekrar çek" işareti olur). */
     var warned by mutableStateOf(false)
+    /** İnceleme ekranında hesaplanan kalite puanı; -1 = hesaplanmadı. */
+    var score by mutableStateOf(-1)
     /** Kayıtlı kırpmayı düzenleme: inceleme ekranı atlanır, düzenleyici doğrudan açılır; Uygula = kaydet. */
     var directEdit by mutableStateOf(false)
 }
@@ -429,7 +431,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val st = cls.students.firstOrNull { it.no == no } ?: return
         val root = settings.rootUri?.let { Uri.parse(it) }
         updateStudent(classId, no) {
-            it.copy(captured = false, box = null, origUri = null, savedStem = null, faceCount = 0, updatedAt = 0L, retake = false)
+            it.copy(captured = false, box = null, origUri = null, savedStem = null, faceCount = 0, updatedAt = 0L, retake = false, score = -1)
         }
         viewModelScope.launch(Dispatchers.IO) {
             Naming.privatePhoto(ctx, classId, no).delete()
@@ -932,6 +934,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val ih = s.ih
         val faceCount = s.faces.size
         val warned = cap.warned
+        val newScore = cap.score
         cap.saving = true
 
         viewModelScope.launch {
@@ -941,7 +944,8 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                     it.copy(
                         captured = true, updatedAt = System.currentTimeMillis(), box = box,
                         origUri = saved.origUri, savedStem = saved.stem, faceCount = faceCount,
-                        retake = warned
+                        retake = warned,
+                        score = if (newScore >= 0) newScore else it.score
                     )
                 }
                 cap.temp?.delete()
