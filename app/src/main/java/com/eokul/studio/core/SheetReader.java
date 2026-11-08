@@ -109,6 +109,8 @@ public final class SheetReader {
         /** Şube başlığından ("6. Sınıf A Şubesi") okunan düzey ve şube; yoksa null. */
         public String titleGrade = null;
         public String titleBranch = null;
+        /** Düz (sınıf sütunlu / sayfa adlı) listelerde ayrıştırılmış sınıf adı; düzey+şube ayrışamadıysa tam ad. */
+        public String label = null;
         /** Cinsiyet sütunundan sayılan kız / erkek sayısı; sütun yoksa -1. */
         public int girlsCounted = -1;
         public int boysCounted = -1;
@@ -289,6 +291,10 @@ public final class SheetReader {
             sheet = sheets.get(names.get(0));
         }
 
+        return parseXlsxSheet(sheet, parseSst(shared));
+    }
+
+    private static List<String> parseSst(String shared) {
         List<String> sst = new ArrayList<>();
         if (shared != null) {
             Matcher si = Pattern.compile("<si>(.*?)</si>", Pattern.DOTALL).matcher(shared);
@@ -300,6 +306,10 @@ public final class SheetReader {
                 sst.add(sb.toString());
             }
         }
+        return sst;
+    }
+
+    private static List<String[]> parseXlsxSheet(String sheet, List<String> sst) {
         TreeMap<Integer, TreeMap<Integer, String>> grid = new TreeMap<>();
         Matcher cm = Pattern.compile("<c\\s([^>]*?)(?:/>|>(.*?)</c>)", Pattern.DOTALL).matcher(sheet);
         Pattern ref = Pattern.compile("r=\"([A-Z]+)(\\d+)\"");
@@ -645,5 +655,173 @@ public final class SheetReader {
             pos = d + len;
         }
         return toRows(grid);
+    }
+
+    /** Çalışma kitabındaki bir sayfa: sekme adı ve satırlar (hücreler sütun sırasıyla; boşlar null/"" olabilir). */
+    public static final class Sheet {
+        public final String name;
+        public final List<String[]> rows;
+
+        public Sheet(String name, List<String[]> rows) {
+            this.name = name;
+            this.rows = rows;
+        }
+    }
+
+    /**
+     * Tüm (gizli olmayan) sayfaları sekme sırasıyla okur. Satırı olmayan sayfalar listeye girmez.
+     * Sınıfların ayrı sayfalarda ("6A", "6B" sekmeleri) tutulduğu dosyalar için.
+     */
+    public static List<Sheet> readSheets(byte[] data) throws IOException {
+        if (data.length > 50L * 1024 * 1024) throw new IOException("Dosya çok büyük (en fazla 50 MB)");
+        List<Sheet> all;
+        if (data.length > 4 && data[0] == 'P' && data[1] == 'K') all = readXlsxSheets(data);
+        else if (data.length > 8 && (data[0] & 255) == 0xD0 && (data[1] & 255) == 0xCF) all = readXlsSheets(data);
+        else throw new IOException("Excel dosyası değil");
+        List<Sheet> out = new ArrayList<>();
+        for (Sheet sh : all) if (sh.rows != null && !sh.rows.isEmpty()) out.add(sh);
+        return out;
+    }
+
+    private static List<Sheet> readXlsxSheets(byte[] data) throws IOException {
+        String shared = null, workbook = null, rels = null;
+        Map<String, String> sheets = new TreeMap<>();
+        int entries = 0;
+        try (ZipInputStream zin = new ZipInputStream(new ByteArrayInputStream(data))) {
+            ZipEntry e;
+            while ((e = zin.getNextEntry()) != null) {
+                if (++entries > 2000) throw new IOException("Excel dosyası beklenenden fazla kayıt içeriyor");
+                String n = e.getName();
+                if (n.equals("xl/sharedStrings.xml")) shared = new String(readAll(zin), "UTF-8");
+                else if (n.equals("xl/workbook.xml")) workbook = new String(readAll(zin), "UTF-8");
+                else if (n.equals("xl/_rels/workbook.xml.rels")) rels = new String(readAll(zin), "UTF-8");
+                else if (n.startsWith("xl/worksheets/") && n.endsWith(".xml") && n.indexOf('/', 14) < 0) sheets.put(n, new String(readAll(zin), "UTF-8"));
+            }
+        }
+        if (sheets.isEmpty()) throw new IOException("Çalışma sayfası bulunamadı");
+        List<String> sst = parseSst(shared);
+        List<Sheet> out = new ArrayList<>();
+        Map<String, String> rid = new HashMap<>();
+        if (rels != null) {
+            Matcher rm = Pattern.compile("<Relationship\\b([^>]*)>", Pattern.DOTALL).matcher(rels);
+            while (rm.find()) {
+                Matcher id = Pattern.compile("\\bId=\"([^\"]+)\"").matcher(rm.group(1));
+                Matcher tg = Pattern.compile("\\bTarget=\"([^\"]+)\"").matcher(rm.group(1));
+                if (id.find() && tg.find()) {
+                    String t = tg.group(1);
+                    rid.put(id.group(1), t.startsWith("/") ? t.substring(1) : "xl/" + t);
+                }
+            }
+        }
+        boolean named = false;
+        if (workbook != null) {
+            Matcher sm = Pattern.compile("<sheet\\b([^>]*)>", Pattern.DOTALL).matcher(workbook);
+            while (sm.find()) {
+                String a = sm.group(1);
+                Matcher nm = Pattern.compile("\\bname=\"([^\"]*)\"").matcher(a);
+                Matcher rm2 = Pattern.compile("r:id=\"([^\"]+)\"").matcher(a);
+                Matcher st = Pattern.compile("\\bstate=\"(\\w+)\"").matcher(a);
+                if (st.find() && !st.group(1).equals("visible")) continue;   // gizli sayfalar atlanır
+                if (!nm.find() || !rm2.find()) continue;
+                String path = rid.get(rm2.group(1));
+                if (path == null || !sheets.containsKey(path)) continue;
+                named = true;
+                out.add(new Sheet(unescape(nm.group(1)), parseXlsxSheet(sheets.get(path), sst)));
+            }
+        }
+        if (!named) {
+            int i = 1;
+            for (String key : sheets.keySet()) out.add(new Sheet("Sayfa " + (i++), parseXlsxSheet(sheets.get(key), sst)));
+        }
+        return out;
+    }
+
+    /** Eski .xls: her çalışma sayfası BOF(0x10)…EOF alt akışıdır; adlar BOUNDSHEET kayıtlarından, sırayla eşleşir. */
+    private static List<Sheet> readXlsSheets(byte[] file) throws IOException {
+        byte[] wb = oleStream(file, "Workbook", "Book");
+        List<String> sst = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        List<Boolean> hidden = new ArrayList<>();
+        List<Sheet> out = new ArrayList<>();
+        TreeMap<Integer, TreeMap<Integer, String>> grid = null;
+        int pos = 0, depth = 0, sheetNo = 0;
+        boolean inSheet = false;
+        while (pos + 4 <= wb.length) {
+            int id = u16(wb, pos), len = u16(wb, pos + 2);
+            int d = pos + 4;
+            if (d + len > wb.length) break;
+            if (id == 0x0809) {                                   // BOF
+                depth++;
+                if (depth == 1 && u16(wb, d + 2) == 0x10) {
+                    inSheet = true;
+                    grid = new TreeMap<>();
+                }
+            } else if (id == 0x000A) {                            // EOF
+                if (depth == 1 && inSheet) {
+                    String nm = sheetNo < names.size() ? names.get(sheetNo) : "Sayfa " + (sheetNo + 1);
+                    boolean hid = sheetNo < hidden.size() && hidden.get(sheetNo);
+                    if (!hid) out.add(new Sheet(nm, toRows(grid)));
+                    sheetNo++;
+                    inSheet = false;
+                    grid = null;
+                }
+                depth = Math.max(0, depth - 1);
+            } else if (id == 0x0085 && len >= 8) {                // BOUNDSHEET: yalnız çalışma sayfaları (tür 0)
+                int type = wb[d + 5] & 255;
+                if (type == 0) {
+                    int cch = wb[d + 6] & 255;
+                    int flags = wb[d + 7] & 255;
+                    String nm;
+                    try {
+                        if ((flags & 1) != 0) nm = new String(wb, d + 8, Math.min(cch * 2, len - 8), "UTF-16LE");
+                        else nm = new String(wb, d + 8, Math.min(cch, len - 8), "ISO-8859-1");
+                    } catch (Exception ex) {
+                        nm = "Sayfa " + (names.size() + 1);
+                    }
+                    names.add(nm);
+                    hidden.add((wb[d + 4] & 3) != 0);
+                }
+            } else if (id == 0x00FC) {                            // SST
+                Seg seg = new Seg();
+                seg.parts.add(java.util.Arrays.copyOfRange(wb, d, d + len));
+                int q = d + len;
+                while (q + 4 <= wb.length && u16(wb, q) == 0x003C) {
+                    int l2 = u16(wb, q + 2);
+                    seg.parts.add(java.util.Arrays.copyOfRange(wb, q + 4, q + 4 + l2));
+                    q += 4 + l2;
+                }
+                seg.i32();
+                int unique = seg.i32();
+                try {
+                    for (int i = 0; i < unique; i++) sst.add(sstString(seg));
+                } catch (IOException e) {
+                    // kesik SST: okunanlarla devam
+                }
+            } else if (inSheet && depth == 1 && grid != null) {
+                if (id == 0x00FD && len >= 10) {                  // LABELSST
+                    int idx = i32(wb, d + 6);
+                    put(grid, u16(wb, d), u16(wb, d + 2), idx >= 0 && idx < sst.size() ? sst.get(idx) : "");
+                } else if (id == 0x0204 && len >= 8) {            // LABEL
+                    int cch = u16(wb, d + 6);
+                    int flags = wb[d + 8] & 255;
+                    String str;
+                    if ((flags & 1) != 0) str = new String(wb, d + 9, Math.min(cch * 2, len - 9), "UTF-16LE");
+                    else str = new String(wb, d + 9, Math.min(cch, len - 9), "ISO-8859-1");
+                    put(grid, u16(wb, d), u16(wb, d + 2), str);
+                } else if (id == 0x0203 && len >= 14) {           // NUMBER
+                    long bits = 0;
+                    for (int k = 7; k >= 0; k--) bits = (bits << 8) | (wb[d + 6 + k] & 255);
+                    put(grid, u16(wb, d), u16(wb, d + 2), numText(Double.toString(Double.longBitsToDouble(bits))));
+                } else if (id == 0x027E && len >= 10) {           // RK
+                    put(grid, u16(wb, d), u16(wb, d + 2), rk(i32(wb, d + 6)));
+                } else if (id == 0x00BD && len >= 6) {            // MULRK
+                    int row = u16(wb, d), first = u16(wb, d + 2);
+                    int n = (len - 6) / 6;
+                    for (int k = 0; k < n; k++) put(grid, row, first + k, rk(i32(wb, d + 4 + 6 * k + 2)));
+                }
+            }
+            pos = d + len;
+        }
+        return out;
     }
 }

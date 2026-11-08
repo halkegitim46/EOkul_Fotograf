@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.eokul.studio.core.FlatList
 import com.eokul.studio.core.RosterParser
 import com.eokul.studio.core.SheetReader
 
@@ -53,6 +54,8 @@ fun MultiImportScreen(studio: StudioViewModel) {
     var fileName by remember { mutableStateOf<String?>(null) }
     var blocks by remember { mutableStateOf<List<SheetReader.Block>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    var notes by remember { mutableStateOf<List<String>>(emptyList()) }
     var grade by remember { mutableStateOf("") }
     var sep by remember { mutableStateOf("") }
     var startLetter by remember { mutableStateOf("A") }
@@ -70,15 +73,18 @@ fun MultiImportScreen(studio: StudioViewModel) {
                 } else if (!SheetReader.looksLikeExcel(bytes)) {
                     error = "Bu ekran Excel (.xls / .xlsx) dosyası ister. Tek sınıf için sınıfın içindeki “Listeyi yapıştır” ekranını kullanın."
                 } else {
-                    val b = SheetReader.readEokulBlocks(bytes)
-                    if (b == null) {
-                        error = "Dosyada e-Okul liste başlığı (S.No, Öğrenci No, Adı, Soyadı) bulunamadı."
+                    val out = FlatList.detect(bytes)
+                    if (out == null) {
+                        error = "Dosyada öğrenci numarası ve ad soyad sütunları bulunamadı. Beklenen: No, Ad Soyad, Sınıf (başlıklı veya başlıksız) ya da e-Okul sınıf listesi."
                     } else {
+                        val b = out.blocks
                         blocks = b
+                        info = out.info
+                        notes = out.notes
                         overrides.clear()
-                        // Şube başlığı ("6. Sınıf A Şubesi") varsa sınıf düzeyi ve ilk şube oradan alınır.
+                        // Şube başlığı ("6. Sınıf A Şubesi") veya düz listedeki sınıf adı varsa oradan alınır.
                         val t0 = b.indexOfFirst { it.titleGrade != null }
-                        useTitles = t0 >= 0
+                        useTitles = b.any { it.titleGrade != null || it.label != null }
                         if (t0 >= 0) {
                             grade = b[t0].titleGrade ?: grade
                             val ch = b[t0].titleBranch?.firstOrNull()
@@ -97,6 +103,8 @@ fun MultiImportScreen(studio: StudioViewModel) {
     fun autoName(i: Int): String {
         val c0 = startLetter.trim().firstOrNull()?.uppercaseChar() ?: 'A'
         val blk = blocks?.getOrNull(i)
+        // Düz listelerde sınıf adı dosyadan gelir (düzey+şube ayrışmadıysa olduğu gibi)
+        if (blk != null && useTitles && blk.label != null && (blk.titleGrade == null || blk.titleBranch == null)) return blk.label
         val fromTitle = if (useTitles) blk?.titleBranch else null
         val letter = fromTitle ?: if (c0 in 'A'..'Z' && c0 + i <= 'Z') (c0 + i).toString() else (i + 1).toString()
         val g = if (useTitles) (blk?.titleGrade ?: grade.trim()) else grade.trim()
@@ -139,7 +147,7 @@ fun MultiImportScreen(studio: StudioViewModel) {
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        "Tek Excel dosyasından 6A, 6B, 6C… sınıflarını ekleyin",
+                        "Tek Excel dosyasından tüm sınıfları ve öğrencileri ekleyin",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                     )
@@ -156,8 +164,10 @@ fun MultiImportScreen(studio: StudioViewModel) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("1 · Dosya", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "e-Okul’dan aldığınız, şubelerin alt alta olduğu Excel dosyası. Her şube S.No’nun yeniden 1’den başlamasından " +
-                            "ve “Öğrenci Sayısı” alt satırından otomatik ayrılır; “6. Sınıf A Şubesi” başlığı varsa sınıf adı oradan alınır.",
+                        "Desteklenen Excel (.xls / .xlsx) biçimleri:\n" +
+                            "• Tüm okul tek listede: No · Ad Soyad · Sınıf (başlıklı veya başlıksız; sınıf “6A”, “6/A”, “6. Sınıf A Şubesi” olabilir, sınıf ve şube ayrı sütunda da olur)\n" +
+                            "• Her sınıf ayrı sayfada (sekme adı 6A, 6B…)\n" +
+                            "• e-Okul çok şubeli liste (S.No yeniden 1’den başlar / “Öğrenci Sayısı” alt satırı)",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedButton(
@@ -170,6 +180,10 @@ fun MultiImportScreen(studio: StudioViewModel) {
                             color = OkGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold
                         )
                     }
+                    if (list != null) info?.let {
+                        Text("Biçim: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (list != null) notes.forEach { Text("ℹ $it", color = WarnAmber, style = MaterialTheme.typography.bodySmall) }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
                 }
             }
@@ -179,10 +193,10 @@ fun MultiImportScreen(studio: StudioViewModel) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("2 · Sınıf adları", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        if (list.any { it.titleGrade != null }) {
+                        if (list.any { it.titleGrade != null || it.label != null }) {
                             Text("Ad kaynağı", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(selected = useTitles, onClick = { useTitles = true }, label = { Text("Dosyadaki başlıktan") })
+                                FilterChip(selected = useTitles, onClick = { useTitles = true }, label = { Text("Dosyadan") })
                                 FilterChip(selected = !useTitles, onClick = { useTitles = false }, label = { Text("Elle gir") })
                             }
                         }
@@ -208,8 +222,8 @@ fun MultiImportScreen(studio: StudioViewModel) {
                             FilterChip(selected = titleCase, onClick = { titleCase = true }, label = { Text("Ad Soyad (baş harf büyük)") })
                         }
                         Text(
-                            if (list.any { it.titleGrade != null } && useTitles)
-                                "Başlığı olan şubeler dosyadaki adla, olmayanlar sırayla adlandırılır. Aşağıdan her adı elle değiştirebilirsiniz."
+                            if (list.any { it.titleGrade != null || it.label != null } && useTitles)
+                                "Sınıf adları dosyadan alındı. Aşağıdan her adı elle değiştirebilirsiniz."
                             else if (grade.isBlank())
                                 "Sınıf düzeyini yazın (ör. 6); şubeler ilk şubeden başlayarak sırayla A, B, C… adlandırılır. Düzey boş kalırsa adlar yalnızca harf olur."
                             else

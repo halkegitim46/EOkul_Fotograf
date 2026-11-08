@@ -53,3 +53,11 @@ Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite o
 - Kamerada "Işık: iyi / arka ışık / yan ışık / parlama" çipi; sorun varsa yönlendirme metni ve otomatik çekim bekler, 4 sn sonra uyarıyla vazgeçer.
 - Sonuç 3 ölçüm art arda aynı çıkınca kabul edilir (titreşim yok). Yalnızca "Akıllı" modda çalışır.
 - Ana ekran: "Sınıf ekle" düğmesi telif yazısının üstüne alındı.
+
+## 8 Kas — düz liste (No · Ad Soyad · Sınıf) içe aktarma
+- core/FlatList.java: sınıf sütunlu (başlıklı/başlıksız), sınıf+şube ayrı sütun, birleştirilmiş boş sınıf hücreleri (üsttekiyle dolar),
+  sınıf başlık satırları, sayfa adı = sınıf (xls ve xlsx çok sayfalı; SheetReader.readSheets). Sınıf adı "6/A","6-A","6. Sınıf A Şubesi" → "6A".
+- FlatList.detect(): açık sınıf sütunu / sayfa adı → düz liste; aksi halde e-Okul blokları ile düz liste karşılaştırılıp çok sınıf bulan seçilir.
+- Arayüz: Çoklu sınıf listesi ekranı aynı; "Biçim: …" satırı ve uyarı notları gösterir; sınıf adları dosyadan, elle düzenlenebilir.
+- Testler: FlatListTest + test/resources (sinif_sutunlu, basliksiz_sira_ayri, sayfa_sinif, birlesik_sinif; .xls/.xlsx). Tüm veriler uydurma.
+- Bilinmeyenler: gerçek okul dosyalarında eşikler/başlık adları farklı olabilir; tanınmayan başlık adı eklemek için FlatList.roleOf.
