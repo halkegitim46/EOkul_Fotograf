@@ -2,8 +2,8 @@ package com.eokul.studio
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 
 import android.graphics.Bitmap
@@ -256,12 +256,12 @@ private fun PhotoPager(
                 AppButton(
                     "Önceki", onClick = { scope.launch { pager.animateScrollToPage(page - 1) } },
                     enabled = page > 0, style = BtnStyle.Secondary, dark = true,
-                    icon = Icons.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
                 )
                 AppButton(
                     "Sonraki", onClick = { scope.launch { pager.animateScrollToPage(page + 1) } },
                     enabled = page < total - 1, style = BtnStyle.Secondary, dark = true,
-                    icon = Icons.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
                 )
             }
             Spacer(Modifier.height(6.dp))

@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -52,11 +52,11 @@ fun SettingsBtn(onClick: () -> Unit, tint: Color = LocalContentColor.current) =
 
 @Composable
 fun PrevBtn(onClick: () -> Unit, enabled: Boolean, tint: Color = Color.White) =
-    IconBtn(Icons.Filled.KeyboardArrowLeft, "Önceki öğrenci", onClick, tint = if (enabled) tint else Color.Gray, enabled = enabled)
+    IconBtn(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Önceki öğrenci", onClick, tint = if (enabled) tint else Color.Gray, enabled = enabled)
 
 @Composable
 fun NextBtn(onClick: () -> Unit, enabled: Boolean, tint: Color = Color.White) =
-    IconBtn(Icons.Filled.KeyboardArrowRight, "Sonraki öğrenci", onClick, tint = if (enabled) tint else Color.Gray, enabled = enabled)
+    IconBtn(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Sonraki öğrenci", onClick, tint = if (enabled) tint else Color.Gray, enabled = enabled)
 
 private fun vec(name: String, path: String): ImageVector =
     ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)

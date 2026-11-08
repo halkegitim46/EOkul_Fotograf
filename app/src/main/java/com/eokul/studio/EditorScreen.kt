@@ -2,8 +2,8 @@ package com.eokul.studio
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
@@ -283,11 +283,11 @@ fun EditorContent(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = BtnGap) {
                     if (onPrev != null) AppButton(
                         "Önceki", onClick = onPrev, style = BtnStyle.Secondary, dark = true,
-                        icon = Icons.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
                     )
                     if (onNext != null) AppButton(
                         "Sonraki", onClick = onNext, style = BtnStyle.Secondary, dark = true,
-                        icon = Icons.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
                     )
                 }
             }
