@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,10 +42,17 @@ import kotlin.math.roundToInt
 fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolean, onClose: () -> Unit) {
     BackHandler { onClose() }
     var confirmRestore by remember { mutableStateOf<Uri?>(null) }
+    var restoreInfo by remember { mutableStateOf<StudioViewModel.BackupInfo?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var advanced by remember { mutableStateOf(false) }
     var pinOpen by remember { mutableStateOf(false) }
     val restorePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) confirmRestore = uri
+        if (uri != null) scope.launch {
+            // Önce içeriğine bakılır: geçerli bir yedek değilse hiçbir şey değişmeden uyarı verilir.
+            val info = studio.inspectBackup(uri)
+            if (info == null) studio.toast("Bu dosya geçerli bir yedek değil (roster.json ve sınıf listesi bulunamadı). Mevcut veriye dokunulmadı.")
+            else { restoreInfo = info; confirmRestore = uri }
+        }
     }
     val rootPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri != null) studio.setRootFolder(uri)
@@ -270,13 +278,32 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         )
         Spacer(Modifier.size(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { studio.backup() }) { Text("💾 Yedekle") }
-            OutlinedButton(onClick = { restorePicker.launch(arrayOf("application/zip", "application/octet-stream")) }) {
-                Text("♻ Geri yükle")
-            }
+            AppButton("Yedekle", onClick = { studio.backup() }, style = BtnStyle.Primary, modifier = Modifier.weight(1f))
+            AppButton(
+                "Geri yükle",
+                onClick = { restorePicker.launch(arrayOf("application/zip", "application/octet-stream")) },
+                style = BtnStyle.Secondary, modifier = Modifier.weight(1f)
+            )
         }
+        val lastB = vm.settings.lastBackupMs
+        Text(
+            if (lastB == 0L) "Son yedek: hiç alınmadı"
+            else "Son yedek: " + java.text.SimpleDateFormat("d MMM yyyy HH:mm", java.util.Locale.forLanguageTag("tr")).format(java.util.Date(lastB)),
+            style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 6.dp)
+        )
         Text(
             "Yedek: sınıf listeleri ve küçük fotoğraflar kayıt klasörüne Yedek-tarih.zip olarak yazılır ve yazıldıktan sonra doğrulanır. Tam çözünürlüklü orijinaller yedeğe girmez.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.size(10.dp))
+        Text("Yeni sürüme veya yeni telefona geçiş", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(
+            "1. “Yedekle”ye basın; “Yedek alındı ve doğrulandı” mesajını bekleyin.\n" +
+                "2. Yedek dosyası kayıt klasörünüzde durur; uygulamayı silmek onu silmez.\n" +
+                "3. Eski uygulamayı kaldırıp yeni APK’yı kurun (imza değiştiyse güncelleme üstüne kurulmaz).\n" +
+                "4. Açılışta aynı kayıt klasörünü yeniden seçin.\n" +
+                "5. “Geri yükle” ile Yedek-….zip dosyasını seçin; içeriği önce gösterilir, geri yüklemeden önce mevcut verinin ayrı bir kopyası otomatik alınır.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         }
@@ -339,7 +366,19 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmRestore = null },
             title = { Text("Yedekten geri yüklensin mi?") },
-            text = { Text("Uygulamadaki tüm sınıf listeleri ve küçük fotoğraflar yedekteki ile değiştirilir.") },
+            text = {
+                val ri = restoreInfo
+                val dateFmt = java.text.SimpleDateFormat("d MMM yyyy HH:mm", java.util.Locale.forLanguageTag("tr"))
+                Text(
+                    (if (ri != null)
+                        "Yedekte: ${ri.classes} sınıf · ${ri.students} öğrenci (${ri.captured} fotoğraflı)" +
+                            (ri.createdMs?.let { " · " + dateFmt.format(java.util.Date(it)) } ?: "") + "\n"
+                    else "") +
+                        "Şu an uygulamada: ${studio.classes.size} sınıf · ${studio.classes.sumOf { it.students.size }} öğrenci\n\n" +
+                        "Uygulamadaki tüm sınıf listeleri ve küçük fotoğraflar yedekteki ile DEĞİŞTİRİLİR. " +
+                        "Değiştirmeden önce mevcut verinin ayrı bir kopyası (Geri-yukleme-oncesi-….zip) kayıt klasörüne otomatik alınır."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRestore = null

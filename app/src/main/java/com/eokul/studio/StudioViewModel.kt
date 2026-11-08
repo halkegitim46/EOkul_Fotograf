@@ -619,9 +619,22 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         exportZip(classes.toList(), "Tum-siniflar-eokul.zip", "tüm sınıflar")
     }
 
+    /**
+     * Tüm sınıflar tek ZIP'te, kaydedilen düzenle aynı klasör yapısıyla: `6A/12345-Ad Soyad.jpg`, ayrıca `rapor.csv`
+     * (sınıf, numara, ad, durum, kalite puanı). Arşivleme / başka sisteme taşıma ve kontrol için.
+     */
+    fun exportAllFoldersZip() {
+        exportZip(classes.toList(), "Tum-siniflar-klasorlu-${stamp()}.zip", "sınıf klasörleriyle", folders = true)
+    }
+
+    private fun csvCell(v: String): String {
+        val t = v.replace("\"", "\"\"")
+        return if (t.contains(';') || t.contains('"') || t.contains('\n')) "\"$t\"" else t
+    }
+
     private fun sanitizedZipName(className: String) = RosterParser.sanitizeFileName(className) + "-eokul.zip"
 
-    private fun exportZip(snap: List<SchoolClass>, zipName: String, label: String) {
+    private fun exportZip(snap: List<SchoolClass>, zipName: String, label: String, folders: Boolean = false) {
         val rootStr = settings.rootUri
         if (rootStr == null) {
             say("Önce kayıt klasörünü seçin")
@@ -639,17 +652,36 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                         if (!st.captured) continue
                         val f = Naming.privatePhoto(ctx, cls.id, st.no)
                         if (!f.exists()) continue
-                        if (!seen.add(st.no)) {
+                        // Düz düzende numara tüm okulda tek olmalı; klasörlü düzende yalnızca sınıf içinde.
+                        val key = if (folders) cls.id + "|" + st.no else st.no
+                        if (!seen.add(key)) {
                             dups.add("${st.no} (${cls.name})")
                             continue
                         }
-                        items.add(st.no to f)
+                        val entry = if (folders)
+                            RosterParser.sanitizeFileName(cls.name) + "/" + RosterParser.studentStem(st.no, st.name) + ".jpg"
+                        else st.no + ".jpg"
+                        items.add(entry to f)
                     }
                     if (items.isNotEmpty()) {
                         Output.writeStream(ctx, root, emptyList(), zipName, "application/zip") { out ->
                             java.util.zip.ZipOutputStream(out).use { zip ->
-                                for ((no, f) in items) {
-                                    zip.putNextEntry(java.util.zip.ZipEntry("$no.jpg"))
+                                if (folders) {
+                                    // Excel'in Türkçe karakterleri doğru açması için UTF-8 BOM + noktalı virgül
+                                    zip.putNextEntry(java.util.zip.ZipEntry("rapor.csv"))
+                                    val sb = StringBuilder("\uFEFFSınıf;No;Ad Soyad;Durum;Kalite puanı;Tekrar çekilmeli\r\n")
+                                    for (cls in snap) for (st in cls.students) {
+                                        sb.append(csvCell(cls.name)).append(';').append(csvCell(st.no)).append(';')
+                                            .append(csvCell(st.name)).append(';')
+                                            .append(if (st.captured) "Çekildi" else "Bekliyor").append(';')
+                                            .append(if (st.captured && st.score >= 0) st.score.toString() else "").append(';')
+                                            .append(if (st.retake) "Evet" else "").append("\r\n")
+                                    }
+                                    zip.write(sb.toString().toByteArray(Charsets.UTF_8))
+                                    zip.closeEntry()
+                                }
+                                for ((entry, f) in items) {
+                                    zip.putNextEntry(java.util.zip.ZipEntry(entry))
                                     f.inputStream().use { it.copyTo(zip) }
                                     zip.closeEntry()
                                 }
@@ -676,6 +708,105 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     private fun stampSec(): String =
         java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
 
+    /** Yedek ZIP'inin özeti (geri yüklemeden önce kullanıcıya gösterilir). */
+    data class BackupInfo(val classes: Int, val students: Int, val captured: Int, val photos: Int, val createdMs: Long?)
+
+    /** Yedeği geri yüklemeden önce içeriğini okur; geçerli bir yedek değilse null (mevcut veriye dokunulmaz). */
+    suspend fun inspectBackup(uri: Uri): BackupInfo? = withContext(Dispatchers.IO) {
+        try {
+            var json: String? = null
+            var manifest: String? = null
+            var photos = 0
+            var count = 0
+            ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                java.util.zip.ZipInputStream(ins).use { zip ->
+                    val sink = ByteArray(16 * 1024)
+                    while (true) {
+                        val e = zip.nextEntry ?: break
+                        if (e.isDirectory) continue
+                        if (++count > RESTORE_MAX_ENTRIES) throw IOException("Çok fazla dosya")
+                        val keep = e.name == "roster.json" || e.name == "yedek.json"
+                        val bos = java.io.ByteArrayOutputStream()
+                        var size = 0L
+                        while (true) {
+                            val n = zip.read(sink)
+                            if (n < 0) break
+                            size += n
+                            if (keep) {
+                                if (size > RESTORE_MAX_ROSTER) throw IOException("Liste dosyası beklenenden büyük")
+                                bos.write(sink, 0, n)
+                            }
+                        }
+                        if (e.name == "roster.json") json = bos.toString("UTF-8")
+                        else if (e.name == "yedek.json") manifest = bos.toString("UTF-8")
+                        else if (e.name.startsWith("photos/")) photos++
+                    }
+                }
+            } ?: throw IOException("Dosya açılamadı")
+            val parsed = store.parseStrict(json ?: throw IOException("roster.json yok"))
+            if (parsed.isEmpty()) return@withContext null
+            val created = try { manifest?.let { org.json.JSONObject(it).optLong("created", 0L) }?.takeIf { it > 0 } } catch (_: Exception) { null }
+            BackupInfo(parsed.size, parsed.sumOf { it.students.size }, parsed.sumOf { c -> c.students.count { it.captured } }, photos, created)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    /**
+     * Yedek ZIP'ini kayıt klasörüne yazar ve geri okuyup doğrular: roster.json + photos/** + yedek.json (özet).
+     * Üçlü döner: dosya adı, fotoğraf sayısı, çekilmiş öğrenci sayısı. Hata olursa IOException.
+     */
+    private suspend fun writeBackup(root: Uri, snap: List<SchoolClass>, prefix: String): Triple<String, Int, Int> =
+        withContext(Dispatchers.IO) {
+            storeMutex.withLock { store.save(snap) }?.let { throw IOException("Liste kaydedilemediği için yedek alınmadı: $it") }
+            val rf = File(ctx.filesDir, "roster.json")
+            val photos = File(ctx.filesDir, "photos").walkTopDown().filter { it.isFile }.toList()
+            val captured = snap.sumOf { c -> c.students.count { it.captured } }
+            val manifest = org.json.JSONObject()
+                .put("app", "E-Okul Foto Studio")
+                .put("created", System.currentTimeMillis())
+                .put("classes", snap.size)
+                .put("students", snap.sumOf { it.students.size })
+                .put("captured", captured)
+                .put("photos", photos.size)
+                .toString()
+            val n = "$prefix${stampSec()}.zip"
+            val uri = Output.writeStream(ctx, root, emptyList(), n, "application/zip") { out ->
+                java.util.zip.ZipOutputStream(out).use { zip ->
+                    zip.putNextEntry(java.util.zip.ZipEntry("yedek.json"))
+                    zip.write(manifest.toByteArray(Charsets.UTF_8))
+                    zip.closeEntry()
+                    if (rf.exists()) {
+                        zip.putNextEntry(java.util.zip.ZipEntry("roster.json"))
+                        rf.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                    for (f in photos) {
+                        val rel = f.relativeTo(ctx.filesDir).path.replace('\\', '/')
+                        zip.putNextEntry(java.util.zip.ZipEntry(rel))
+                        f.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+            }
+            // Doğrulama: yazılan dosyayı geri okuyup kayıt sayısını karşılaştır.
+            var entries = 0
+            ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                java.util.zip.ZipInputStream(ins).use { z ->
+                    val sink = ByteArray(8192)
+                    while (z.nextEntry != null) {
+                        entries++
+                        while (z.read(sink) >= 0) { /* sonuna kadar oku: bozuk arşiv hata verir */ }
+                    }
+                }
+            } ?: throw IOException("Yedek dosyası doğrulanamadı")
+            val expectedEntries = photos.size + 1 + if (rf.exists()) 1 else 0
+            if (entries != expectedEntries) throw IOException("Yedek doğrulaması tutmadı ($entries/$expectedEntries kayıt)")
+            Triple(n, photos.size, captured)
+        }
+
     /** Sınıf listesi + küçük fotoğraflar: kayıt klasörüne Yedek-tarih.zip (akış tabanlı, doğrulamalı). */
     fun backup() {
         val rootStr = settings.rootUri
@@ -687,44 +818,10 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val snap = classes.toList()
         viewModelScope.launch {
             try {
-                val name: Triple<String, Int, Int> = withContext(Dispatchers.IO) {
-                    storeMutex.withLock { store.save(snap) }?.let { throw IOException("Liste kaydedilemediği için yedek alınmadı: $it") }
-                    val rf = File(ctx.filesDir, "roster.json")
-                    val photos = File(ctx.filesDir, "photos").walkTopDown().filter { it.isFile }.toList()
-                    val n = "Yedek-${stampSec()}.zip"
-                    val uri = Output.writeStream(ctx, root, emptyList(), n, "application/zip") { out ->
-                        java.util.zip.ZipOutputStream(out).use { zip ->
-                            if (rf.exists()) {
-                                zip.putNextEntry(java.util.zip.ZipEntry("roster.json"))
-                                rf.inputStream().use { it.copyTo(zip) }
-                                zip.closeEntry()
-                            }
-                            for (f in photos) {
-                                val rel = f.relativeTo(ctx.filesDir).path.replace('\\', '/')
-                                zip.putNextEntry(java.util.zip.ZipEntry(rel))
-                                f.inputStream().use { it.copyTo(zip) }
-                                zip.closeEntry()
-                            }
-                        }
-                    }
-                    // Doğrulama: yazılan dosyayı geri okuyup kayıt sayısını karşılaştır.
-                    var entries = 0
-                    ctx.contentResolver.openInputStream(uri)?.use { ins ->
-                        java.util.zip.ZipInputStream(ins).use { z ->
-                            val sink = ByteArray(8192)
-                            while (z.nextEntry != null) {
-                                entries++
-                                while (z.read(sink) >= 0) { /* sonuna kadar oku: bozuk arşiv hata verir */ }
-                            }
-                        }
-                    } ?: throw IOException("Yedek dosyası doğrulanamadı")
-                    val expectedEntries = photos.size + if (rf.exists()) 1 else 0
-                    if (entries != expectedEntries) throw IOException("Yedek doğrulaması tutmadı ($entries/$expectedEntries kayıt)")
-                    Triple(n, photos.size, snap.sumOf { c -> c.students.count { it.captured } })
-                }
+                val name = writeBackup(root, snap, "Yedek-")
                 SettingsState.update(settings.copy(lastBackupMs = System.currentTimeMillis()))
-                say("✓ Yedek alındı ve doğrulandı: ${name.first} (${name.second} fotoğraf / ${name.third} çekilmiş öğrenci). " +
-                    "Not: tam çözünürlüklü orijinaller yedeğe girmez, kayıt klasöründe kalır.")
+                say("✓ Yedek alındı ve doğrulandı: ${name.first}\n${name.second} fotoğraf · ${name.third} çekilmiş öğrenci.\n" +
+                    "Dosya kayıt klasöründe durur; uygulamayı silseniz de kalır. Tam çözünürlüklü orijinaller yedeğe girmez, kayıt klasöründe kalır.")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -740,6 +837,18 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     fun restore(uri: Uri) {
         viewModelScope.launch {
             try {
+                // Güvenlik ağı: değiştirmeden önce mevcut verinin ayrı bir yedeği alınır; alınamazsa işlem başlamaz.
+                var safety: String? = null
+                if (classes.isNotEmpty()) {
+                    val rootStr = settings.rootUri ?: throw IOException("Önce kayıt klasörünü seçin (geri yüklemeden önce mevcut verinin güvenlik yedeği alınır)")
+                    try {
+                        safety = writeBackup(Uri.parse(rootStr), classes.toList(), "Geri-yukleme-oncesi-").first
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        throw IOException("Güvenlik yedeği alınamadığı için geri yükleme başlatılmadı: ${e.message ?: e.javaClass.simpleName}")
+                    }
+                }
                 val result = withContext(Dispatchers.IO) {
                     val photosDir = File(ctx.filesDir, "photos").canonicalFile
                     val newDir = File(ctx.filesDir, "photos.new")
@@ -812,7 +921,8 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 classes.clear()
                 classes.addAll(result.first)
                 persist()
-                say("✓ ${result.first.size} sınıf geri yüklendi" + if (result.second > 0) " (${result.second} bozuk fotoğraf atlandı)" else "")
+                say("✓ ${result.first.size} sınıf geri yüklendi" + (if (result.second > 0) " (${result.second} bozuk fotoğraf atlandı)" else "") +
+                    (if (safety != null) "\nÖnceki verinizin kopyası: $safety" else ""))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

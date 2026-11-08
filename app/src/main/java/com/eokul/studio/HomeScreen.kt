@@ -87,6 +87,10 @@ fun HomeScreen(studio: StudioViewModel) {
                                 toolsMenu = false
                                 studio.exportAllEokulZip()
                             })
+                            DropdownMenuItem(text = { Text("📁 Tüm sınıflar ZIP (klasörlü + rapor)") }, enabled = studio.classes.isNotEmpty(), onClick = {
+                                toolsMenu = false
+                                studio.exportAllFoldersZip()
+                            })
                             DropdownMenuItem(text = { Text("🩺 Veri denetimi") }, enabled = studio.classes.isNotEmpty(), onClick = {
                                 toolsMenu = false
                                 studio.auditData()

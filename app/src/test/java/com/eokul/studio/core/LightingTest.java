@@ -53,4 +53,18 @@ public class LightingTest {
         assertNull(Lighting.analyze(frame(150, 140, 140), W, H, 0.7, 0.3, 0.3, 0.7));
         assertNotNull(run(frame(150, 140, 140)));
     }
+
+    @Test public void scaledAnalysisOnFullResolutionFrame() {
+        int w = 480, h = 640;
+        int[] px = new int[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                boolean face = x >= 0.30 * w && x < 0.70 * w && y >= 0.25 * h && y < 0.60 * h;
+                px[y * w + x] = gray(face ? 85 : 215);
+            }
+        Lighting.Report r = Lighting.analyzeScaled(px, w, h, 0.30 * w, 0.25 * h, 0.70 * w, 0.60 * h);
+        assertNotNull(r);
+        assertEquals(Lighting.BACKLIT, r.code);
+        assertNull(Lighting.analyzeScaled(null, w, h, 1, 1, 2, 2));
+    }
 }

@@ -93,6 +93,25 @@ public final class Lighting {
         return new Report(code, face, bg, side, clipFrac);
     }
 
+    /**
+     * Tam çözünürlüklü görüntü için: örnekleyerek ~96 piksel genişliğe indirir, sonra [analyze] çağırır.
+     * Yüz kutusu piksel koordinatındadır (incelem ekranında çalışma görüntüsü).
+     */
+    public static Report analyzeScaled(int[] px, int w, int h, double x1, double y1, double x2, double y2) {
+        if (px == null || w < 16 || h < 16 || px.length < w * h) return null;
+        int sw = Math.min(w, 96);
+        int sh = Math.max(16, (int) Math.round(h * (sw / (double) w)));
+        int[] small = new int[sw * sh];
+        for (int y = 0; y < sh; y++) {
+            int sy = Math.min(h - 1, (int) ((long) y * h / sh));
+            for (int x = 0; x < sw; x++) {
+                int sx = Math.min(w - 1, (int) ((long) x * w / sw));
+                small[y * sw + x] = px[sy * w + sx];
+            }
+        }
+        return analyze(small, sw, sh, x1 / w, y1 / h, x2 / w, y2 / h);
+    }
+
     private static int clampI(double norm, int size) {
         int v = (int) Math.round(norm * size);
         return Math.max(0, Math.min(size, v));

@@ -145,6 +145,18 @@ fun ReviewScreen(studio: StudioViewModel) {
             }
             val f0 = s.faces.firstOrNull()
             if (f0 != null) {
+                // Işık dengesi: yüz ile arka plan ve yüzün iki yarısı karşılaştırılır (canlı kameradaki ölçümle aynı mantık)
+                val light = androidx.compose.runtime.remember(s.pixels, f0) {
+                    com.eokul.studio.core.Lighting.analyzeScaled(s.pixels, s.iw, s.ih, f0.box.x1, f0.box.y1, f0.box.x2, f0.box.y2)
+                }
+                when (light?.code) {
+                    com.eokul.studio.core.Lighting.BACKLIT ->
+                        warnings.add("⚠ Arka ışık: yüz arka plandan belirgin koyu — pencereye sırtınız dönük olmasın, ışığa doğru dönüp yeniden çekin.")
+                    com.eokul.studio.core.Lighting.UNEVEN ->
+                        warnings.add("⚠ Yüze tek yandan ışık vuruyor — ışığa doğru dönüp yeniden çekin.")
+                    com.eokul.studio.core.Lighting.GLARE ->
+                        warnings.add("⚠ Yüzde parlama / patlak bölge var — doğrudan ışıktan uzaklaşıp yeniden çekin.")
+                }
                 for (code in com.eokul.studio.core.Framing.check(f0.box.toArray(), f0.headTop, f0.eyes, s.box.toArray())) {
                     warnings.add(
                         when (code) {

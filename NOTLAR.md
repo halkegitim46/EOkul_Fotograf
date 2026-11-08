@@ -61,3 +61,10 @@ Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite o
 - Arayüz: Çoklu sınıf listesi ekranı aynı; "Biçim: …" satırı ve uyarı notları gösterir; sınıf adları dosyadan, elle düzenlenebilir.
 - Testler: FlatListTest + test/resources (sinif_sutunlu, basliksiz_sira_ayri, sayfa_sinif, birlesik_sinif; .xls/.xlsx). Tüm veriler uydurma.
 - Bilinmeyenler: gerçek okul dosyalarında eşikler/başlık adları farklı olabilir; tanınmayan başlık adı eklemek için FlatList.roleOf.
+
+## İnceleme arka ışığı, yedek/geri yükleme, toplu dışa aktarma
+- İnceleme ekranı: çekimden sonra da arka ışık / tek yandan ışık / parlama uyarısı (`Lighting.analyzeScaled`, canlı kamerayla aynı eşikler).
+- Yedek: `yedek.json` özetli ZIP, yazıldıktan sonra geri okunup doğrulanır; "Son yedek" tarihi Ayarlar'da.
+- Geri yükleme: önce içerik önizlemesi (sınıf/öğrenci sayısı, tarih; geçersiz dosya reddedilir), değiştirmeden önce otomatik `Geri-yukleme-oncesi-….zip` güvenlik yedeği (alınamazsa işlem başlamaz). Ayarlar'da sürüm/telefon geçişi rehberi.
+- Ana ekran araçlar menüsü: "Tüm sınıflar ZIP (klasörlü + rapor)": `Sınıf/No-Ad Soyad.jpg` + `rapor.csv` (UTF-8 BOM, ; ayraçlı).
+- Kotlin kısmı derlenmedi; Java çekirdek testleri 57/57 geçti.
