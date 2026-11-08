@@ -30,7 +30,7 @@
 - Kayıtlı orijinal bulunamazsa (taşınmış/silinmiş/yeniden adlandırılmış) klasörde numaraya göre aranır; yoksa açık mesaj verilir.
 
 ## 8 Kas — büyük sürüm yükseltmesi (DERLENMEDİ, ilk derleme log'u bekleniyor)
-Eski → yeni: AGP 8.5.2→9.5.0 · Gradle 8.9→9.6.0 · JDK 17→21 · Kotlin 2.0.20→2.4.20 · Compose BOM 2024.09.03→2026.08.00
+Eski → yeni: AGP 8.5.2→9.3.1 · Gradle 8.9→9.5.0 · JDK 17→21 · Kotlin 2.0.20→2.4.20 · Compose BOM 2024.09.03→2026.08.00
 CameraX 1.3.4→1.6.2 · activity-compose 1.9.2→1.13.0 · core-ktx 1.13.1→1.19.1 · coroutines 1.8.1→1.11.0
 exifinterface 1.3.7→1.4.2 · documentfile 1.0.1→1.1.0 · compileSdk 34→37 · targetSdk 34→35. ML Kit: en yenisi zaten kullanılıyor.
 AGP 9: org.jetbrains.kotlin.android eklentisi kaldırıldı (yerleşik Kotlin), kotlinOptions kaldırıldı. Kotlin sürümü kök build.gradle.kts'te buildscript ile sabit.

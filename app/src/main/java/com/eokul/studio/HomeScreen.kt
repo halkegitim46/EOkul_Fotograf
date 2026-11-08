@@ -264,7 +264,7 @@ private fun SummaryCard(studio: StudioViewModel) {
     val retake = classes.sumOf { c -> c.students.count { it.retake } }
     val last = studio.settings.lastBackupMs
     val backupText = if (last == 0L) "Yedek: hiç alınmadı"
-    else "Yedek: " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale("tr")).format(java.util.Date(last))
+    else "Yedek: " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.forLanguageTag("tr")).format(java.util.Date(last))
     val stale = done > 0 && (last == 0L || System.currentTimeMillis() - last > 7L * 24 * 3600 * 1000)
     Card(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),

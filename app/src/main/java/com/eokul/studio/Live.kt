@@ -67,7 +67,7 @@ fun measureFace(bmp: android.graphics.Bitmap, rot: Int, r: android.graphics.Rect
         }
         val x = Math.max(0, r.left)
         val y = Math.max(0, r.top)
-        val w = Math.min(upright!!.width, r.right) - x
+        val w = Math.min(upright.width, r.right) - x
         val h = Math.min(upright.height, r.bottom) - y
         if (w < 48 || h < 48) {
             null

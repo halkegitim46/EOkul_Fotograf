@@ -30,7 +30,7 @@ object Diag {
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             try {
                 val sb = StringBuilder()
-                sb.append(SimpleDateFormat("d MMM HH:mm:ss", Locale("tr")).format(Date())).append("  iş parçacığı: ").append(t.name).append('\n')
+                sb.append(SimpleDateFormat("d MMM HH:mm:ss", Locale.forLanguageTag("tr")).format(Date())).append("  iş parçacığı: ").append(t.name).append('\n')
                 sb.append(e.toString()).append('\n')
                 sb.append(memInfo()).append('\n')
                 e.stackTrace.take(14).forEach { sb.append("  at ").append(it.toString()).append('\n') }
@@ -80,7 +80,7 @@ object Diag {
                     // veriler kayıtlıdır, kullanıcıya gösterilmez. Yalnızca ön plandayken olan kapanmalar bildirilir.
                     val wasForeground = ei.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
                     if (ei.reason == android.app.ApplicationExitInfo.REASON_LOW_MEMORY && !wasForeground) continue
-                    out.append(SimpleDateFormat("d MMM HH:mm", Locale("tr")).format(Date(ei.timestamp)))
+                    out.append(SimpleDateFormat("d MMM HH:mm", Locale.forLanguageTag("tr")).format(Date(ei.timestamp)))
                         .append(" · ").append(name)
                         .append(if (wasForeground) " (uygulama açıkken)" else " (arka planda)")
                     val d = ei.description
