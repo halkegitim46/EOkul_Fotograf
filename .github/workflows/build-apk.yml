@@ -184,12 +184,63 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
+      - name: Anahtarı doğrula (şifre ve takma ad)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          fail() { echo "::error::$1"; echo "### ❌ Anahtar sorunu: $1" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          [ -n "$KEYSTORE_PASSWORD" ] || fail "KEYSTORE_PASSWORD gizli değişkeni boş/tanımsız"
+          [ -n "$KEY_ALIAS" ] || fail "KEY_ALIAS gizli değişkeni boş/tanımsız"
+          [ -n "$KEY_PASSWORD" ] || fail "KEY_PASSWORD gizli değişkeni boş/tanımsız"
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" > ks.txt 2> ks.err; then
+            cat ks.err
+            fail "Keystore açılamadı: KEYSTORE_BASE64 bozuk (base64 tek satır olmalı) veya KEYSTORE_PASSWORD yanlış"
+          fi
+          echo "Keystore türü / takma adlar (gizli bilgi içermez):"
+          grep -E "Keystore type|Your keystore contains|, PrivateKeyEntry|, trustedCertEntry" ks.txt || true
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+            ALIASES=$(grep -E "PrivateKeyEntry" ks.txt | cut -d, -f1 | tr '\n' ' ')
+            fail "KEY_ALIAS ('$KEY_ALIAS') keystore içinde yok. Keystore'daki takma adlar: $ALIASES"
+          fi
+          if ! keytool -importkeystore -srckeystore "$KEYSTORE_FILE" -srcstorepass "$KEYSTORE_PASSWORD" -srcalias "$KEY_ALIAS" \
+               -srckeypass "$KEY_PASSWORD" -destkeystore "$RUNNER_TEMP/test.p12" -deststoretype PKCS12 \
+               -deststorepass testtest -destkeypass testtest -noprompt > /dev/null 2> kp.err; then
+            cat kp.err
+            fail "KEY_PASSWORD yanlış (anahtar şifresi, keystore şifresinden farklı olabilir)"
+          fi
+          echo "### ✅ Anahtar doğrulandı (takma ad: $KEY_ALIAS)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Release APK derle (R8)
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --no-daemon --stacktrace --console=plain
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace --console=plain 2>&1 | tee release.log
+
+      - name: Release hata özeti (başarısızsa)
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo '### ❌ Release derleme hatası — ilgili satırlar'
+            echo '```'
+            grep -nE "^e: |error:|FAILURE:|What went wrong|Caused by|Could not|Missing class|R8:|Execution failed|keystore|Keystore|alias" release.log | head -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Release logunu yükle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-log
+          path: release.log
+          if-no-files-found: ignore
 
       - name: APK imzasını doğrula
         shell: bash

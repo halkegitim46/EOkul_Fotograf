@@ -22,15 +22,17 @@ android {
 
     // İmza bilgileri kaynak kodda DEĞİL, ortam değişkenlerinde (GitHub Secrets) tutulur.
     // Anahtar yoksa release sürümü Android'in debug anahtarıyla imzalanır (kurulur ama her derlemede imza değişir).
-    val ksFile = System.getenv("KEYSTORE_FILE")
-    val hasReleaseKey = ksFile != null && file(ksFile).exists() && System.getenv("KEYSTORE_PASSWORD") != null
+    // GitHub'da tanımsız gizli değişken boş metin olarak gelir; boşları "yok" sayıyoruz.
+    fun env(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() }
+    val ksFile = env("KEYSTORE_FILE")
+    val hasReleaseKey = ksFile != null && file(ksFile).exists() && env("KEYSTORE_PASSWORD") != null
     signingConfigs {
         if (hasReleaseKey) {
             create("eokulRelease") {
                 storeFile = file(ksFile!!)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS") ?: "eokul"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
+                storePassword = env("KEYSTORE_PASSWORD")
+                keyAlias = env("KEY_ALIAS") ?: "eokul"
+                keyPassword = env("KEY_PASSWORD") ?: env("KEYSTORE_PASSWORD")
             }
         }
     }
