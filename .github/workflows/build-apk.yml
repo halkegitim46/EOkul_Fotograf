@@ -258,7 +258,9 @@ jobs:
           fi
           {
             echo "### ✅ RELEASE APK (kendi anahtarınızla imzalı)"
-            grep -E "Signer #1 certificate (DN|SHA-256)" imza.txt | sed 's/^/- /'
+            # apksigner çıktısı sürüme göre "V2 Signer: certificate DN" veya "Signer #1 certificate DN" olabilir.
+            # Eşleşme olmazsa grep 1 döner; bu adımı düşürmesin diye || true.
+            { grep -E "Signer.*certificate (DN|SHA-256)" imza.txt || true; } | sed 's/^/- /'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: APK'yı sürümlü ada kopyala
