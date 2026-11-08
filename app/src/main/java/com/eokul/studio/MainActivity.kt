@@ -288,6 +288,6 @@ private fun CaptureEditorScreen(studio: StudioViewModel) {
         onPickFace = { studio.captureEditorPickFace(it) },
         onPrev = null,
         onNext = null,
-        applyLabel = "✅ Uygula"
+        applyLabel = if (cap?.directEdit == true) "Uygula ve kaydet" else "Uygula"
     )
 }

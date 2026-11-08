@@ -1,5 +1,10 @@
 package com.eokul.studio
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
@@ -95,7 +100,7 @@ fun EditorScreen(vm: AppViewModel) {
         onPickFace = { vm.editorPickFace(it) },
         onPrev = { vm.navigateEditor(-1) },
         onNext = { vm.navigateEditor(1) },
-        applyLabel = "✅ Uygula"
+        applyLabel = "Uygula"
     )
 }
 
@@ -258,61 +263,47 @@ fun EditorContent(
 
         if (s.faces.size > 1) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Yüz:", color = DimTxt, fontSize = 12.sp)
+                Text("Yüz:", color = DimTxt, fontSize = 13.sp)
                 s.faces.forEachIndexed { i, _ ->
-                    OutlinedButton(
-                        onClick = { onPickFace(i) },
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) { Text("${i + 1}") }
+                    AppButton("${i + 1}", onClick = { onPickFace(i) }, style = BtnStyle.Secondary, dark = true, compact = true)
                 }
             }
         }
 
-        // ---- Düğmeler
-        val pad = PaddingValues(horizontal = 4.dp)
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        // ---- Düğmeler (standart: Buttons.kt) — ana eylem altta, geniş; yan eylemler eşit genişlikte
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (onPrev != null) {
-                OutlinedButton(
-                    onClick = onPrev, modifier = Modifier.weight(1f), contentPadding = pad
-                ) { Text("‹ Önceki", fontSize = 12.sp) }
+            if (onPrev != null || onNext != null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = BtnGap) {
+                    if (onPrev != null) AppButton(
+                        "Önceki", onClick = onPrev, style = BtnStyle.Secondary, dark = true,
+                        icon = Icons.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
+                    )
+                    if (onNext != null) AppButton(
+                        "Sonraki", onClick = onNext, style = BtnStyle.Secondary, dark = true,
+                        icon = Icons.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
+                    )
+                }
             }
-            if (onNext != null) {
-                OutlinedButton(
-                    onClick = onNext, modifier = Modifier.weight(1f), contentPadding = pad
-                ) { Text("Sonraki ›", fontSize = 12.sp) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppButton("Uzak", onClick = { s.zoom(1.06, s.box.cx, s.box.cy) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
+                AppButton("Yakın", onClick = { s.zoom(0.94, s.box.cx, s.box.cy) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
+                AppButton("Geri", onClick = { s.undo() }, enabled = s.canUndo, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
+                AppButton("Yüze dön", onClick = onResetFace, enabled = !s.loading, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1.2f))
             }
-            OutlinedButton(
-                onClick = { s.zoom(1.06, s.box.cx, s.box.cy) }, modifier = Modifier.weight(1f), contentPadding = pad
-            ) { Text("− Uzak", fontSize = 12.sp) }
-            OutlinedButton(
-                onClick = { s.zoom(0.94, s.box.cx, s.box.cy) }, modifier = Modifier.weight(1f), contentPadding = pad
-            ) { Text("+ Yakın", fontSize = 12.sp) }
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            OutlinedButton(
-                onClick = onCancel, modifier = Modifier.weight(1f), contentPadding = pad
-            ) { Text("İptal", fontSize = 12.sp) }
-            OutlinedButton(
-                onClick = onResetFace, modifier = Modifier.weight(1.3f), contentPadding = pad,
-                enabled = !s.loading
-            ) { Text("🎯 Yüzü sıfırla", fontSize = 12.sp) }
-            OutlinedButton(
-                onClick = { s.undo() }, modifier = Modifier.weight(1f), contentPadding = pad, enabled = s.canUndo
-            ) { Text("↶ Geri", fontSize = 12.sp) }
-            Button(
-                onClick = onApply, modifier = Modifier.weight(1.2f), contentPadding = pad,
-                enabled = !s.loading
-            ) { Text(applyLabel, fontSize = 12.sp) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = BtnGap) {
+                AppButton("İptal", onClick = onCancel, style = BtnStyle.Danger, dark = true, modifier = Modifier.weight(1f))
+                AppButton(
+                    applyLabel, onClick = onApply, enabled = !s.loading, style = BtnStyle.Primary, dark = true,
+                    icon = Icons.Filled.Check, modifier = Modifier.weight(1.6f)
+                )
+            }
         }
     }
 }

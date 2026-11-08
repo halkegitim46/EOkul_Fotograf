@@ -1,5 +1,11 @@
 package com.eokul.studio
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Refresh
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
@@ -229,38 +235,36 @@ private fun PhotoPager(
             color = dim, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
         )
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = { scope.launch { pager.animateScrollToPage(page - 1) } }, enabled = page > 0,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = onDark, disabledContentColor = Color(0xFF55607A)),
-                modifier = Modifier.heightIn(min = 52.dp)
-            ) { Text("‹ Önceki") }
-            Button(
-                onClick = {
-                    onClose()
-                    studio.openCamera(classId, cur.no)
-                },
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-            ) { Text(if (cur.captured) "Yeniden çek" else "Fotoğraf çek", fontWeight = FontWeight.Bold) }
-            OutlinedButton(
-                onClick = { scope.launch { pager.animateScrollToPage(page + 1) } }, enabled = page < total - 1,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = onDark, disabledContentColor = Color(0xFF55607A)),
-                modifier = Modifier.heightIn(min = 52.dp)
-            ) { Text("Sonraki ›") }
-        }
-        if (cur.captured) {
-            TextButton(
-                onClick = {
-                    onClose()
-                    studio.editSavedCrop(classId, cur.no)
-                },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-            ) { Text("Kırpmayı düzenle", color = onDark) }
-        } else {
-            Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            AppButton(
+                text = if (cur.captured) "Yeniden çek" else "Fotoğraf çek",
+                onClick = { onClose(); studio.openCamera(classId, cur.no) },
+                style = BtnStyle.Primary, dark = true,
+                icon = if (cur.captured) Icons.Filled.Refresh else null,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            )
+            if (cur.captured) {
+                AppButton(
+                    text = "Kırpmayı düzenle",
+                    onClick = { onClose(); studio.editSavedCrop(classId, cur.no) },
+                    style = BtnStyle.Secondary, dark = true,
+                    icon = Icons.Filled.Edit,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = BtnGap) {
+                AppButton(
+                    "Önceki", onClick = { scope.launch { pager.animateScrollToPage(page - 1) } },
+                    enabled = page > 0, style = BtnStyle.Secondary, dark = true,
+                    icon = Icons.Filled.KeyboardArrowLeft, modifier = Modifier.weight(1f)
+                )
+                AppButton(
+                    "Sonraki", onClick = { scope.launch { pager.animateScrollToPage(page + 1) } },
+                    enabled = page < total - 1, style = BtnStyle.Secondary, dark = true,
+                    icon = Icons.Filled.KeyboardArrowRight, modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
         }
     }
 }

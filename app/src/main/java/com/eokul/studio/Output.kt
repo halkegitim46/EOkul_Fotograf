@@ -153,6 +153,23 @@ object Output {
         }
     }
 
+    /** Uri gerçekten açılabiliyor mu? (dosya taşınmış/silinmişse false) */
+    fun exists(ctx: Context, uri: Uri): Boolean = try {
+        ctx.contentResolver.openInputStream(uri)?.use { true } ?: false
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Klasörde `stem.*` adlı dosyayı, yoksa `prefix` ile başlayan ilk dosyayı bulur (yalnızca okur, klasör oluşturmaz). */
+    fun findFile(ctx: Context, tree: Uri, segments: List<String>, stem: String, prefix: String): Uri? = try {
+        val dir = dirFor(ctx, tree, segments, false)
+        val files = dir?.listFiles()?.filter { it.isFile } ?: emptyList()
+        (files.firstOrNull { it.name?.substringBeforeLast('.') == stem }
+            ?: files.firstOrNull { it.name?.startsWith(prefix) == true })?.uri
+    } catch (e: Exception) {
+        null
+    }
+
     fun deleteUri(ctx: Context, uri: Uri) {
         try {
             DocumentFile.fromSingleUri(ctx, uri)?.delete()

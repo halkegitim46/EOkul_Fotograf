@@ -1,5 +1,8 @@
 package com.eokul.studio
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -225,18 +228,20 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
             title = { Text("${act.no} · ${act.name}") },
             text = { Text("Bu öğrencinin fotoğrafı zaten çekilmiş. Ne yapmak istersiniz?") },
             confirmButton = {
-                TextButton(onClick = {
-                    actionFor = null
-                    studio.openCamera(cls.id, act.no)
-                }) { Text("Yeniden çek") }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = {
-                        actionFor = null
-                        studio.editSavedCrop(cls.id, act.no)
-                    }) { Text("Kırpmayı düzenle") }
-                    TextButton(onClick = { actionFor = null }) { Text("Vazgeç") }
+                androidx.compose.foundation.layout.Column(
+                    Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    AppButton(
+                        "Kırpmayı düzenle", onClick = { actionFor = null; studio.editSavedCrop(cls.id, act.no) },
+                        style = BtnStyle.Primary, icon = Icons.Filled.Edit,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    AppButton(
+                        "Yeniden çek", onClick = { actionFor = null; studio.openCamera(cls.id, act.no) },
+                        style = BtnStyle.Secondary, icon = Icons.Filled.Refresh,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    AppButton("Vazgeç", onClick = { actionFor = null }, style = BtnStyle.Tertiary, modifier = Modifier.fillMaxWidth())
                 }
             }
         )
@@ -369,7 +374,7 @@ private fun StudentRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        if (s.retake) androidx.compose.material.icons.Icons.Filled.Refresh else androidx.compose.material.icons.Icons.Filled.Check,
+                        if (s.retake) Icons.Filled.Refresh else Icons.Filled.Check,
                         contentDescription = if (s.retake) "Tekrar çekilmeli" else "Çekildi",
                         tint = Color.White, modifier = Modifier.size(11.dp)
                     )

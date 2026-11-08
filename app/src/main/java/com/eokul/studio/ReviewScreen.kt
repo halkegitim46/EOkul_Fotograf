@@ -1,5 +1,11 @@
 package com.eokul.studio
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -101,7 +107,7 @@ fun ReviewScreen(studio: StudioViewModel) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val err = cap.error
             when {
-                err != null -> Text("Fotoğraf işlenemedi: $err", color = Warn)
+                err != null -> Text("Fotoğraf açılamadı. Orijinal dosya taşınmış, silinmiş veya bozuk olabilir; fotoğrafı yeniden çekin.\n\nTeknik ayrıntı: $err", color = Warn, fontSize = 14.sp)
                 cap.loading || s == null -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
@@ -216,32 +222,33 @@ fun ReviewScreen(studio: StudioViewModel) {
                         "✓ İyi çekim — otomatik kaydediliyor…", color = Color(0xFF9ECE6A),
                         fontSize = 13.sp, modifier = Modifier.weight(1f)
                     )
-                    OutlinedButton(onClick = { autoStopped = true }) { Text("Durdur") }
+                    AppButton("Durdur", onClick = { autoStopped = true }, style = BtnStyle.Danger, dark = true, compact = true)
                 }
             }
         }
 
-        Spacer(Modifier.size(8.dp))
-        val pad = PaddingValues(horizontal = 4.dp)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(
-                onClick = { studio.discardCapture() }, modifier = Modifier.weight(1f).heightIn(min = 56.dp),
-                enabled = !cap.saving, contentPadding = pad,
-                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE5645F))
-            ) { Text(if (cap.fromSaved) "İptal" else "Yeniden çek", fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
-            androidx.compose.material3.TextButton(
-                onClick = { studio.openCaptureEditor() }, modifier = Modifier.heightIn(min = 56.dp),
-                enabled = s != null && !cap.loading && !cap.saving, contentPadding = pad
-            ) { Text("Düzenle", fontSize = 14.sp) }
-            Button(
-                onClick = { studio.saveCapture() }, modifier = Modifier.weight(1.5f).heightIn(min = 56.dp),
-                enabled = s != null && !cap.loading && !cap.saving, contentPadding = pad
-            ) {
-                Text(
-                    if (cap.saving) "Kaydediliyor…" else if (cap.warned) "Yine de kaydet" else "Kaydet",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold
-                )
-            }
+        Spacer(Modifier.size(10.dp))
+        val ready = s != null && !cap.loading && !cap.saving
+        // Ana eylem tek başına, en üstte ve tam genişlikte; yan eylemler altında eşit genişlikte.
+        AppButton(
+            text = if (cap.saving) "Kaydediliyor…" else if (cap.warned) "Yine de kaydet" else "Kaydet",
+            onClick = { studio.saveCapture() }, enabled = ready, style = BtnStyle.Primary, dark = true,
+            icon = if (cap.saving) null else Icons.Filled.Check,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        )
+        Spacer(Modifier.size(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = BtnGap) {
+            AppButton(
+                text = "Kırpmayı düzenle", onClick = { studio.openCaptureEditor() }, enabled = ready,
+                style = BtnStyle.Secondary, dark = true, icon = Icons.Filled.Edit,
+                modifier = Modifier.weight(1f)
+            )
+            AppButton(
+                text = if (cap.fromSaved) "İptal" else "Yeniden çek", onClick = { studio.discardCapture() },
+                enabled = !cap.saving, style = BtnStyle.Danger, dark = true,
+                icon = if (cap.fromSaved) Icons.Filled.Close else Icons.Filled.Refresh,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }

@@ -51,6 +51,8 @@ class CaptureState(
     var saving by mutableStateOf(false)
     /** İnceleme ekranında kalite/yüz uyarısı çıktı mı (kayıtta "tekrar çek" işareti olur). */
     var warned by mutableStateOf(false)
+    /** Kayıtlı kırpmayı düzenleme: inceleme ekranı atlanır, düzenleyici doğrudan açılır; Uygula = kaydet. */
+    var directEdit by mutableStateOf(false)
 }
 
 class StudioViewModel(app: Application) : AndroidViewModel(app) {
@@ -471,26 +473,42 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun editSavedCrop(classId: String, no: String) {
-        val st = classById(classId)?.students?.firstOrNull { it.no == no } ?: return
-        val u = st.origUri
-        if (u == null) {
-            say("Orijinal fotoğraf saklanmamış; yeniden çekin")
-            return
-        }
-        if (settings.rootUri == null) {
+        val cls = classById(classId) ?: return
+        val st = cls.students.firstOrNull { it.no == no } ?: return
+        val rootStr = settings.rootUri
+        if (rootStr == null) {
             say("Önce kayıt klasörünü seçin")
             return
         }
-        onPhotoReady(classId, no, Uri.parse(u), null, true, st.box)
+        viewModelScope.launch {
+            // Kayıtlı orijinal gerçekten var mı? Taşınmış/yeniden adlandırılmışsa klasörde numaraya göre ara.
+            val found: Uri? = withContext(Dispatchers.IO) {
+                val u = st.origUri?.let { Uri.parse(it) }
+                if (u != null && Output.exists(ctx, u)) u
+                else Output.findFile(
+                    ctx, Uri.parse(rootStr),
+                    listOf(RosterParser.sanitizeFileName(cls.name), ORIGINALS_DIR),
+                    st.savedStem ?: RosterParser.studentStem(st.no, st.name), st.no + "-"
+                )
+            }
+            if (found == null) {
+                if (st.origUri != null) updateStudent(classId, no) { it.copy(origUri = null) }
+                say("Orijinal fotoğraf bulunamadı (silinmiş veya taşınmış olabilir). Fotoğrafı yeniden çekin.")
+                return@launch
+            }
+            if (found.toString() != st.origUri) updateStudent(classId, no) { it.copy(origUri = found.toString()) }
+            onPhotoReady(classId, no, found, null, true, st.box, directEdit = true)
+        }
     }
 
     fun onPhotoReady(
         classId: String, no: String, source: Uri, temp: File?,
-        fromSaved: Boolean = false, savedBox: Box? = null
+        fromSaved: Boolean = false, savedBox: Box? = null, directEdit: Boolean = false
     ) {
         captureJob?.cancel()
         capture?.temp?.delete()
         val cap = CaptureState(classId, no, source, temp, fromSaved)
+        cap.directEdit = directEdit
         capture = cap
         if (screen != Screen.Review) navigate(Screen.Review)
         val set = settings
@@ -523,6 +541,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 s.loading = false
                 cap.session = s
                 cap.loading = false
+                if (directEdit && screen == Screen.Review) openCaptureEditor()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -561,11 +580,13 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         capture?.session?.let { it.box = it.startBox }
         if (screen == Screen.CaptureEditor) back()
         capture?.session?.bitmap = null   // düzenleyiciden çıkınca büyük bitmap serbest kalır
+        if (capture?.directEdit == true) discardCapture()   // doğrudan düzenlemede iptal = hiçbir şey değişmez
     }
 
     fun applyCaptureEditor() {
         if (screen == Screen.CaptureEditor) back()
         capture?.session?.bitmap = null
+        if (capture?.directEdit == true) saveCapture()      // doğrudan düzenlemede Uygula = hemen kaydet
     }
 
     fun captureEditorPickFace(index: Int) {
