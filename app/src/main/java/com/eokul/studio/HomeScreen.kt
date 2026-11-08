@@ -142,7 +142,7 @@ fun HomeScreen(studio: StudioViewModel) {
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp
+                        start = 12.dp, end = 12.dp, top = 8.dp, bottom = 112.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -167,7 +167,8 @@ fun HomeScreen(studio: StudioViewModel) {
         if (studio.classes.isNotEmpty()) {
             ExtendedFloatingActionButton(
                 onClick = { newClassOpen = true },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                // Alttaki telif yazısının (≈28 dp) üstünde kalsın
+                modifier = Modifier.align(Alignment.BottomEnd).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 44.dp)
             ) { Text("＋ Sınıf ekle") }
         }
     }

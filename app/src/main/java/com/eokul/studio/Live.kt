@@ -15,7 +15,9 @@ class LiveFace(
     val eyeOpen: Float = -1f,
     val sharp: Float = Float.NaN,
     val bright: Float = Float.NaN,
-    val contrast: Float = Float.NaN
+    val contrast: Float = Float.NaN,
+    /** Işık dengesi: [com.eokul.studio.core.Lighting] kodu (0 iyi, 1 arka ışık, 2 yan ışık, 3 parlama). */
+    val light: Int = 0
 ) {
     val cx: Float get() = (x1 + x2) / 2f
     val cy: Float get() = (y1 + y2) / 2f
@@ -85,6 +87,49 @@ fun measureFace(bmp: android.graphics.Bitmap, rot: Int, r: android.graphics.Rect
     }
 }
 
+/**
+ * Tüm karenin küçültülmüş hâlinden yüz/arka plan ışık dengesini ölçer (arka ışık, yan ışık, parlama).
+ * Önce küçültüp sonra döndürür; tam boy döndürme yapılmaz (ucuz). Başarısızsa null.
+ */
+fun measureLight(bmp: android.graphics.Bitmap, rot: Int, r: android.graphics.Rect): com.eokul.studio.core.Lighting.Report? {
+    var small: android.graphics.Bitmap? = null
+    var upright: android.graphics.Bitmap? = null
+    return try {
+        val sideways = rot % 180 != 0
+        val uw = (if (sideways) bmp.height else bmp.width).toFloat()
+        val uh = (if (sideways) bmp.width else bmp.height).toFloat()
+        val sw = 96
+        val sh = Math.max(16, Math.round(sw * uh / uw))
+        // Önce sensör yönünde küçült, sonra küçük görüntüyü döndür
+        small = android.graphics.Bitmap.createScaledBitmap(bmp, if (sideways) sh else sw, if (sideways) sw else sh, true)
+        upright = if (rot == 0) small else {
+            val m = android.graphics.Matrix()
+            m.postRotate(rot.toFloat())
+            android.graphics.Bitmap.createBitmap(small, 0, 0, small.width, small.height, m, true)
+        }
+        val w = upright.width
+        val h = upright.height
+        val px = IntArray(w * h)
+        upright.getPixels(px, 0, w, 0, 0, w, h)
+        com.eokul.studio.core.Lighting.analyze(
+            px, w, h, (r.left / uw).toDouble(), (r.top / uh).toDouble(), (r.right / uw).toDouble(), (r.bottom / uh).toDouble()
+        )
+    } catch (e: Throwable) {
+        null
+    } finally {
+        try { if (upright != null && upright !== small && upright !== bmp) upright.recycle() } catch (_: Exception) { }
+        try { if (small != null && small !== bmp) small.recycle() } catch (_: Exception) { }
+    }
+}
+
+/** Işık sorunu için kısa, uygulanabilir yönlendirme (null = sorun yok). */
+fun lightHint(code: Int): String? = when (code) {
+    com.eokul.studio.core.Lighting.BACKLIT -> "Arka ışık var — ışığa dönün veya pencereden uzaklaşın"
+    com.eokul.studio.core.Lighting.UNEVEN -> "Işık tek yandan geliyor — ışığa doğru dönün"
+    com.eokul.studio.core.Lighting.GLARE -> "Yüzde parlama — doğrudan ışıktan uzaklaşın"
+    else -> null
+}
+
 /** Önizleme alanı 3:4 olduğundan birimler: genişlik = 1, yükseklik = 4/3. */
 const val PREVIEW_H = 4f / 3f
 
@@ -103,7 +148,10 @@ fun guideFor(w: Float, h: Float, s: Settings): Guide {
 }
 
 /** [dev]: konum sapması (0 = tam yerinde, 1 = tolerans sınırı). [sharpOnly]: yalnızca netlik engeli var. */
-class LiveEval(val ready: Boolean, val hint: String, val dev: Float = 0f, val sharpOnly: Boolean = false)
+class LiveEval(
+    val ready: Boolean, val hint: String, val dev: Float = 0f,
+    val sharpOnly: Boolean = false, val lightOnly: Boolean = false
+)
 
 /** Canlı çekimde kabul edilen en yüksek bulanıklık oranı (son kontrolden biraz esnek). */
 const val LIVE_BLUR_LIMIT = 0.30f
@@ -114,7 +162,7 @@ const val LIVE_BLUR_LIMIT = 0.30f
  */
 fun evaluateLive(
     l: LiveFace, s: Settings,
-    motionOk: Boolean = true, smart: Boolean = false, ignoreSharp: Boolean = false
+    motionOk: Boolean = true, smart: Boolean = false, ignoreSharp: Boolean = false, ignoreLight: Boolean = false
 ): LiveEval {
     val t = s.autoTol.toFloat()
     val g = guideFor(1f, PREVIEW_H, s)
@@ -138,6 +186,8 @@ fun evaluateLive(
         Math.abs(l.yaw) > 15f * t -> no("Karşıya bakın")
         smart && l.eyeOpen in 0f..0.3f -> no("Gözler açık olsun")
         smart && !l.bright.isNaN() && l.bright < com.eokul.studio.core.Quality.DARK_LIMIT.toFloat() -> no("Ortam çok karanlık")
+        smart && !ignoreLight && lightHint(l.light) != null ->
+            LiveEval(false, lightHint(l.light)!!, dev, lightOnly = true)
         smart && !motionOk -> no("Telefonu sabit tutun")
         smart && !ignoreSharp && !l.sharp.isNaN() && l.sharp > LIVE_BLUR_LIMIT ->
             LiveEval(false, "Netleniyor — sabit durun", dev, sharpOnly = true)

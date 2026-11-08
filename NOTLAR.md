@@ -46,3 +46,10 @@ Kırpma düzenleme (inceleme ekranı atlandığı için) puanı yeniden hesaplam
 
 ## 8 Kas — kapanış özeti
 Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite ortalaması, düşük puanlı sayısı.
+
+## 8 Kas — profesyonel ışık denetimi + ana ekran düzeltmesi
+- core/Lighting.java (+LightingTest): yüz ile arka plan parlaklık farkından arka ışık, yüzün sol/sağ farkından yan ışık, patlak piksellerden parlama.
+  Eşikler: arka ışık fark>40 ve arka plan>130; yan ışık |sol-sağ|/ort>0.35; parlama patlak>%10 veya yüz>205. (Tahmin; gerçek ortamda ayarlanmalı.)
+- Kamerada "Işık: iyi / arka ışık / yan ışık / parlama" çipi; sorun varsa yönlendirme metni ve otomatik çekim bekler, 4 sn sonra uyarıyla vazgeçer.
+- Sonuç 3 ölçüm art arda aynı çıkınca kabul edilir (titreşim yok). Yalnızca "Akıllı" modda çalışır.
+- Ana ekran: "Sınıf ekle" düğmesi telif yazısının üstüne alındı.

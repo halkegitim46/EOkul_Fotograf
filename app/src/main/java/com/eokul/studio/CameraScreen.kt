@@ -217,6 +217,8 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                     camera = provider.bindToLifecycle(activity, cs, preview, imageCapture, analysis)
                     val mirror = !lensBack
                     var frameNo = 0
+                    var lightCand = 0
+                    var lightCandN = 0
                     var lastAnalysisMs = 0L
                     analysis.setAnalyzer(analysisExecutor) { proxy ->
                         // Saniyede ~12 kare yeterli: bellek hareketi ve ısınma azalır
@@ -271,7 +273,14 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                                 var sharp = prev?.sharp ?: Float.NaN
                                 var bright = prev?.bright ?: Float.NaN
                                 var contrast = prev?.contrast ?: Float.NaN
+                                var light = prev?.light ?: 0
                                 if (measureNow) {
+                                    // Işık durumu: ani titreşim olmasın diye aynı sonuç art arda 3 ölçümde görülünce kabul edilir
+                                    val lr = measureLight(bmp, rot, r)
+                                    if (lr != null) {
+                                        if (lr.code == lightCand) lightCandN++ else { lightCand = lr.code; lightCandN = 1 }
+                                        if (lightCandN >= 3) light = lightCand
+                                    }
                                     val q = measureFace(bmp, rot, r)
                                     if (q != null) {
                                         sharp = q.blurRatio.toFloat()
@@ -283,7 +292,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                                     LiveFace(
                                         x1, r.top / uh, x2, r.bottom / uh,
                                         roll, f.headEulerAngleY, System.currentTimeMillis(),
-                                        eyeOpen, sharp, bright, contrast
+                                        eyeOpen, sharp, bright, contrast, light
                                     )
                                 )
                             }
@@ -430,6 +439,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         var lastFocusX = -1f
         var lastFocusY = -1f
         var sharpSince = 0L
+        var lightSince = 0L
         while (isActive) {
             delay(100)
             val now = System.currentTimeMillis()
@@ -457,14 +467,26 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
             }
             val smart = studio.settings.smartShot
             val motionOk = motion.steady
-            var ev = evaluateLive(l, studio.settings, motionOk, smart, false)
+            var ev = evaluateLive(l, studio.settings, motionOk, smart, false, false)
+            // Işık engeli yalnızca uyarıdır: 4 sn sonra vazgeçilir (ortam değiştirilemiyorsa çekim kilitlenmesin)
+            var lightIgnored = false
+            if (ev.lightOnly) {
+                if (lightSince == 0L) lightSince = now
+                if (now - lightSince > 4000L) {
+                    lightIgnored = true
+                    ev = evaluateLive(l, studio.settings, motionOk, smart, false, true)
+                }
+            } else {
+                lightSince = 0L
+            }
             // Yalnızca netlik engeliyse 3 sn sonra vazgeç (eşik uygun olmayan ortamda çekimi kilitlememek için)
             if (ev.sharpOnly) {
                 if (sharpSince == 0L) sharpSince = now
-                if (now - sharpSince > 3000L) ev = evaluateLive(l, studio.settings, motionOk, smart, true)
+                if (now - sharpSince > 3000L) ev = evaluateLive(l, studio.settings, motionOk, smart, true, lightIgnored)
             } else {
                 sharpSince = 0L
             }
+            if (lightIgnored && ev.ready) ev = LiveEval(true, "Hazır — ışık ideal değil, sabit durun", ev.dev)
             gate = ev
             score = Score.total(
                 ev.dev.toDouble(), l.sharp.toDouble(), Math.abs(l.roll).toDouble(), Math.abs(l.yaw).toDouble(),
@@ -557,6 +579,32 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                             fontSize = 14.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         )
+                    }
+                    val lf = live
+                    if (lf != null && studio.settings.smartShot) {
+                        val lh = lightHint(lf.light)
+                        val lcol = if (lh == null) Color(0xFF9ECE6A) else Color(0xFFE0AF68)
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 52.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            ) {
+                                Box(Modifier.size(8.dp).clip(CircleShape).background(lcol))
+                                Text(
+                                    "  Işık: " + when (lf.light) {
+                                        com.eokul.studio.core.Lighting.BACKLIT -> "arka ışık"
+                                        com.eokul.studio.core.Lighting.UNEVEN -> "yan ışık"
+                                        com.eokul.studio.core.Lighting.GLARE -> "parlama"
+                                        else -> "iyi"
+                                    },
+                                    color = lcol, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                     }
                     QualityBadge(
                         score = if (live != null) score else -1,
