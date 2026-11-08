@@ -64,6 +64,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     var autoHold by remember { mutableStateOf(cur.autoHoldMs.toFloat()) }
     var smart by remember { mutableStateOf(cur.smartShot) }
     var flipCap by remember { mutableStateOf(cur.flipCapture) }
+    var flipFront by remember { mutableStateOf(cur.flipFront) }
     var autoAcc by remember { mutableStateOf(cur.autoAccept) }
     var accScore by remember { mutableStateOf(cur.autoAcceptScore.toFloat()) }
     var keepOrig by remember { mutableStateOf(cur.keepOriginals) }
@@ -93,6 +94,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             keepOriginals = keepOrig,
             smartShot = smart,
             flipCapture = flipCap,
+            flipFront = flipFront,
             autoAccept = autoAcc,
             autoAcceptScore = accScore.roundToInt().coerceIn(60, 95),
             topGap = (topGap * 100.0).roundToInt() / 100.0,
@@ -154,10 +156,14 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         Spacer(Modifier.size(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(checked = flipCap, onCheckedChange = { flipCap = it })
-            Text("  Çekilen fotoğrafı sağ-sol çevir", style = MaterialTheme.typography.bodyMedium)
+            Text("  Arka kamera: sağ-sol çevir", style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(checked = flipFront, onCheckedChange = { flipFront = it })
+            Text("  Ön kamera: sağ-sol çevir", style = MaterialTheme.typography.bodyMedium)
         }
         Text(
-            "Telefonunuzda fotoğraf çekimden sonra ters (aynalı) görünüyorsa açın. Yalnızca kamerayla çekilenleri etkiler, galeriden seçilenleri değil.",
+            "Fotoğraf çekimden sonra ters (aynalı) görünüyorsa, o kamera için açın. Ön ve arka kamera ayrı ayrı ayarlanır. Yalnızca kamerayla çekilenleri etkiler, galeriden seçilenleri değil.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(8.dp))
