@@ -66,11 +66,11 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: '8.9'
+          gradle-version: '9.6.0'
 
       - name: Android SDK lisanslarını kabul et
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
@@ -140,10 +140,10 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: '8.9'
+          gradle-version: '9.6.0'
       - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - name: Release (R8) derle — imzasız doğrulama
         run: gradle assembleRelease --no-daemon --stacktrace --console=plain
@@ -167,11 +167,11 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: '8.9'
+          gradle-version: '9.6.0'
 
       - name: Android SDK lisanslarını kabul et
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
