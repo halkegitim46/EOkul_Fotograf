@@ -961,6 +961,19 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Sınıf bitince kısa özet: kaç fotoğraf, kalite ortalaması, düşük puanlılar. */
+    private fun classSummary(cls: SchoolClass?): String {
+        if (cls == null) return "🎉 Sınıftaki tüm fotoğraflar çekildi"
+        val total = cls.students.size
+        val scored = cls.students.filter { it.captured && it.score >= 0 }
+        val low = cls.students.count { it.captured && it.score in 0 until 70 }
+        val sb = StringBuilder("🎉 ${cls.name}: $total/$total fotoğraf çekildi")
+        if (scored.isNotEmpty()) sb.append("\nKalite ortalaması ${scored.map { it.score }.average().toInt()}")
+        if (low > 0) sb.append("\n⚠ $low düşük puanlı fotoğraf var; sınıf ekranında \"⚠ Düşük\" çipinden bakıp yeniden çekebilirsiniz.")
+        else if (scored.isNotEmpty()) sb.append("\nDüşük puanlı fotoğraf yok.")
+        return sb.toString()
+    }
+
     private fun afterSave(classId: String, no: String, set: Settings) {
         if (screen == Screen.Review) back()
         val top = screen
@@ -971,7 +984,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 replace(Screen.Camera(classId, next))
             } else {
                 back()
-                say(if (set.serialMode) "🎉 Sınıftaki tüm fotoğraflar çekildi" else "✓ Kaydedildi")
+                say(if (set.serialMode) classSummary(cls) else "✓ Kaydedildi")
             }
         } else {
             say("✓ Kaydedildi")

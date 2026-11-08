@@ -43,3 +43,6 @@ Geri dönüş: EOkulFotoStudio-android-eski-surum-yedek.zip (8.5.2 sürümü, de
 ## 8 Kas — sınıf raporu
 Student.score (kalite puanı) kaydedilir (JSON "score"); sınıf ekranında ortalama + düşük puanlı (<70) sayısı, "⚠ Düşük" süzgeç çipi, satırda puan.
 Kırpma düzenleme (inceleme ekranı atlandığı için) puanı yeniden hesaplamaz; eski puan korunur. Galeriden/eski kayıtlarda puan -1 (gösterilmez).
+
+## 8 Kas — kapanış özeti
+Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite ortalaması, düşük puanlı sayısı.
