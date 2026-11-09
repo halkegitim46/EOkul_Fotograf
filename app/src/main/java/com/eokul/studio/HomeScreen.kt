@@ -83,10 +83,6 @@ fun HomeScreen(studio: StudioViewModel) {
                                 toolsMenu = false
                                 studio.navigate(Screen.MultiImport)
                             })
-                            DropdownMenuItem(text = { Text("📦 Tüm sınıflar tek ZIP (e-Okul)") }, enabled = studio.classes.isNotEmpty(), onClick = {
-                                toolsMenu = false
-                                studio.exportAllEokulZip()
-                            })
                             DropdownMenuItem(text = { Text("📁 Tüm sınıflar ZIP (klasörlü + rapor)") }, enabled = studio.classes.isNotEmpty(), onClick = {
                                 toolsMenu = false
                                 studio.exportAllFoldersZip()

@@ -614,11 +614,6 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         exportZip(listOf(cls), sanitizedZipName(cls.name), "${cls.name}")
     }
 
-    /** Tüm sınıfların fotoğraflarını tek ZIP'te toplar (numara.jpg, düz yapı): e-Okul toplu yükleme için. */
-    fun exportAllEokulZip() {
-        exportZip(classes.toList(), "Tum-siniflar-eokul.zip", "tüm sınıflar")
-    }
-
     /**
      * Tüm sınıflar tek ZIP'te, kaydedilen düzenle aynı klasör yapısıyla: `6A/12345-Ad Soyad.jpg`, ayrıca `rapor.csv`
      * (sınıf, numara, ad, durum, kalite puanı). Arşivleme / başka sisteme taşıma ve kontrol için.
