@@ -755,7 +755,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Yedek ZIP'ini kayıt klasörüne yazar ve geri okuyup doğrular: roster.json + photos/** + yedek.json (özet).
+     * Yedek ZIP'ini kayıt klasörüne yazar ve geri okuyup doğrular: roster.json + photos klasörü + yedek.json (özet).
      * Üçlü döner: dosya adı, fotoğraf sayısı, çekilmiş öğrenci sayısı. Hata olursa IOException.
      */
     private suspend fun writeBackup(root: Uri, snap: List<SchoolClass>, prefix: String): Triple<String, Int, Int> =

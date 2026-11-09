@@ -1,4 +1,4 @@
-name: Android CI + Released
+name: Android CI + Release
 
 # Tek workflow, tek sürüm kaynağı (anahtar üretmez; yalnızca sizin yüklediğiniz gizli değişkenleri kullanır):
 #  - PR           → debug APK + birim testleri + R8 (imzasız) doğrulama
