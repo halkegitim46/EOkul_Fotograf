@@ -68,3 +68,8 @@ Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite o
 - Geri yükleme: önce içerik önizlemesi (sınıf/öğrenci sayısı, tarih; geçersiz dosya reddedilir), değiştirmeden önce otomatik `Geri-yukleme-oncesi-….zip` güvenlik yedeği (alınamazsa işlem başlamaz). Ayarlar'da sürüm/telefon geçişi rehberi.
 - Ana ekran araçlar menüsü: "Tüm sınıflar ZIP (klasörlü + rapor)": `Sınıf/No-Ad Soyad.jpg` + `rapor.csv` (UTF-8 BOM, ; ayraçlı).
 - Kotlin kısmı derlenmedi; Java çekirdek testleri 57/57 geçti.
+
+## Seri çekimde en iyi kare (Akıllı mod, 3 kare)
+- Her kare ayrı çözümlenir (ML Kit, sınıflandırma açık): o karenin göz açıklığı, gülümseme, baş açısı, gerçek yüz bölgesinde netlik/ışık.
+- `core/Burst.java` cezaları: yüz yok −35, gözler kapalı −25, gülümseme en çok −14 (0.35→0.80 arası), arka ışık/parlama −10, tek yandan ışık −6. Bilinmeyen değer ceza almaz.
+- Önceki sürümde canlı önizlemedeki tek göz değeri tüm karelere yazılıyordu; artık yalnızca yüz çözümlenemezse yedek.

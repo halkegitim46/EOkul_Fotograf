@@ -4,13 +4,35 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
+import com.eokul.studio.core.Burst
+import com.eokul.studio.core.Lighting
 import com.eokul.studio.core.Quality
 import com.eokul.studio.core.Score
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.io.File
+import java.util.concurrent.TimeUnit
 
-/** Aynı öğrenci için art arda çekilen karelerden en netini / en iyi pozlananı seçer. */
+/**
+ * Aynı öğrenci için art arda çekilen karelerden en iyisini seçer. Her kare ayrı ayrı çözümlenir: yüz bulunur,
+ * gözlerin açıklığı ve gülümseme o karenin kendisinden okunur (önceki sürümde canlı önizlemedeki tek değer
+ * tüm karelere yazılıyordu), netlik/ışık gerçek yüz bölgesinde ölçülür, arka ışık ve parlama cezalandırılır.
+ */
 object BurstPick {
+    /** [eyeOpen]: çekim anındaki canlı önizleme değeri; yalnızca karede yüz çözümlenemezse yedek olarak kullanılır. */
     class Shot(val file: File, val eyeOpen: Float)
+
+    /** Yalnızca seri çekimde kullanılır; çağrı arka plan iş parçacığından yapılır (Tasks.await bekler). */
+    private val detector by lazy {
+        FaceDetection.getClient(
+            FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)   // göz açıklığı + gülümseme
+                .setMinFaceSize(0.15f)
+                .build()
+        )
+    }
 
     /** Kare puanı (0..100). Okunamayan kare -1 alır. */
     fun score(shot: Shot): Int {
@@ -39,11 +61,35 @@ object BurstPick {
             val w = rotated.width
             val h = rotated.height
             // Yüz kılavuza oturduğu için kadrajın orta bölgesi yüzü içerir
-            val box = doubleArrayOf(w * 0.22, h * 0.15, w * 0.78, h * 0.70)
+            // Bu karedeki yüz (en büyük). Bulunamazsa kılavuzdaki orta bölge ve canlı göz değeri kullanılır.
+            val face = try {
+                com.google.android.gms.tasks.Tasks.await(detector.process(InputImage.fromBitmap(rotated, 0)), 4, TimeUnit.SECONDS)
+                    .maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
+            } catch (e: Throwable) {
+                null
+            }
+            val box = if (face != null) {
+                val r = face.boundingBox
+                doubleArrayOf(
+                    r.left.coerceIn(0, w - 1).toDouble(), r.top.coerceIn(0, h - 1).toDouble(),
+                    r.right.coerceIn(1, w).toDouble(), r.bottom.coerceIn(1, h).toDouble()
+                )
+            } else doubleArrayOf(w * 0.22, h * 0.15, w * 0.78, h * 0.70)
             val px = IntArray(w * h)
             rotated.getPixels(px, 0, w, 0, 0, w, h)
             val q = Quality.analyze(px, w, h, box)
-            Score.total(0.0, q.blurRatio, 0.0, 0.0, q.brightness, q.contrast, shot.eyeOpen.toDouble())
+            val lo = face?.leftEyeOpenProbability
+            val ro = face?.rightEyeOpenProbability
+            val eye = if (lo != null && ro != null) Math.min(lo, ro) else shot.eyeOpen
+            val smile = face?.smilingProbability ?: -1f
+            val light = if (face != null) {
+                try { Lighting.analyzeScaled(px, w, h, box[0], box[1], box[2], box[3])?.code ?: Lighting.OK } catch (e: Throwable) { Lighting.OK }
+            } else Lighting.OK
+            val base = Score.total(
+                0.0, q.blurRatio, face?.headEulerAngleZ?.toDouble() ?: 0.0, face?.headEulerAngleY?.toDouble() ?: 0.0,
+                q.brightness, q.contrast, eye.toDouble()
+            )
+            Burst.total(base, face != null, smile.toDouble(), eye.toDouble(), light)
         } catch (e: Throwable) {
             -1
         } finally {
