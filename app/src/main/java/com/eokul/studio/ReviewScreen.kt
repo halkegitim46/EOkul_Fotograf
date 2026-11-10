@@ -249,7 +249,7 @@ fun ReviewScreen(studio: StudioViewModel) {
                 cap.error == null && !cap.saving && score >= studio.settings.autoAcceptScore && warnings.isEmpty()
             LaunchedEffect(autoPending) {
                 if (autoPending) {
-                    delay(1200)
+                    delay(700)
                     studio.saveCapture()
                 }
             }

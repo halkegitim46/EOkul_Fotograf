@@ -11,7 +11,6 @@ import androidx.compose.runtime.setValue
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.eokul.studio.core.Lanczos
 import com.eokul.studio.core.RosterParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +60,8 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx: Context = app.applicationContext
     private val store = RosterStore(File(ctx.filesDir, "roster.json"))
     private val storeMutex = Mutex()
+    /** Arka plandaki fotoğraf yazmaları sırayla çalışır (bellek ve klasör çakışması olmasın). */
+    private val saveMutex = Mutex()
 
     val classes = mutableStateListOf<SchoolClass>()
     val stack = mutableStateListOf<Screen>(Screen.Home)
@@ -1042,26 +1043,35 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val newScore = cap.score
         cap.saving = true
 
+        // Hız: öğrenci hemen "çekildi" sayılıp sıradakine geçilir; dosyalar arka planda (sırayla) yazılır.
+        // Yazma başarısız olursa öğrenci eski durumuna döner ve kullanıcı açıkça uyarılır.
+        val before = st
+        updateStudent(cap.classId, cap.no) {
+            it.copy(
+                captured = true, updatedAt = System.currentTimeMillis(), box = box, faceCount = faceCount,
+                retake = warned,
+                score = if (newScore >= 0) newScore else it.score
+            )
+        }
+        capture = null
+        afterSave(cap.classId, cap.no, set)
+
         viewModelScope.launch {
-            try {
-                val saved = withContext(Dispatchers.IO) { writeAll(root, cls, st, cap, px, iw, ih, box, set) }
-                updateStudent(cap.classId, cap.no) {
-                    it.copy(
-                        captured = true, updatedAt = System.currentTimeMillis(), box = box,
-                        origUri = saved.origUri, savedStem = saved.stem, faceCount = faceCount,
-                        retake = warned,
-                        score = if (newScore >= 0) newScore else it.score
-                    )
+            saveMutex.withLock {
+                try {
+                    val saved = withContext(Dispatchers.IO) { writeAll(root, cls, st, cap, px, iw, ih, box, set) }
+                    updateStudent(cap.classId, cap.no) {
+                        // updatedAt yenilenir: küçük resim dosya yazıldıktan sonra yeniden okunur
+                        it.copy(updatedAt = System.currentTimeMillis(), origUri = saved.origUri, savedStem = saved.stem)
+                    }
+                    cap.temp?.delete()
+                    if (saved.warnings.isNotEmpty()) say("⚠ ${st.name}: fotoğraf kaydedildi ancak " + saved.warnings.joinToString("; "))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    updateStudent(cap.classId, cap.no) { before }
+                    say("⚠ ${st.name} (${st.no}) kaydedilemedi: ${e.message ?: e.javaClass.simpleName}. Bu öğrenciyi yeniden çekin.")
                 }
-                cap.temp?.delete()
-                capture = null
-                afterSave(cap.classId, cap.no, set)
-                if (saved.warnings.isNotEmpty()) say("⚠ Fotoğraf kaydedildi ancak " + saved.warnings.joinToString("; "))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                cap.saving = false
-                say("Kaydedilemedi: ${e.message ?: e.javaClass.simpleName}")
             }
         }
     }
@@ -1100,8 +1110,10 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val k = minOf(1.0, ORIG_MAX_SIDE.toDouble() / maxOf(w, h))
         val ow = maxOf(1, Math.round(w * k).toInt())
         val oh = maxOf(1, Math.round(h * k).toInt())
-        val out = if (k < 1.0) Lanczos.cropResize(px, w, h, 0.0, 0.0, w.toDouble(), h.toDouble(), ow, oh) else px
-        val bmp = android.graphics.Bitmap.createBitmap(out, ow, oh, android.graphics.Bitmap.Config.ARGB_8888)
+        // Arşiv kopyası: yerel (native) ölçekleme + JPEG, Java Lanczos'tan çok daha hızlı
+        val full = android.graphics.Bitmap.createBitmap(px, w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val bmp = if (k < 1.0) android.graphics.Bitmap.createScaledBitmap(full, ow, oh, true) else full
+        if (bmp !== full) full.recycle()
         val bos = java.io.ByteArrayOutputStream()
         bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, bos)
         bmp.recycle()

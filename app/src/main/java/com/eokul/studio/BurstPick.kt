@@ -23,11 +23,14 @@ object BurstPick {
     /** [eyeOpen]: çekim anındaki canlı önizleme değeri; yalnızca karede yüz çözümlenemezse yedek olarak kullanılır. */
     class Shot(val file: File, val eyeOpen: Float)
 
+    /** İlk kare bu puanı geçerse kalan kareler çekilmez: çoğu öğrenci için çekim süresi ~3 kat kısalır. */
+    const val GOOD_ENOUGH = 86
+
     /** Yalnızca seri çekimde kullanılır; çağrı arka plan iş parçacığından yapılır (Tasks.await bekler). */
     private val detector by lazy {
         FaceDetection.getClient(
             FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)   // göz/gülümseme sınıflandırması bu modda da çalışır; ~2x hızlı
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)   // göz açıklığı + gülümseme
                 .setMinFaceSize(0.15f)
                 .build()
@@ -96,6 +99,21 @@ object BurstPick {
             try { if (rotated != null && rotated !== bmp) rotated.recycle() } catch (_: Exception) { }
             try { bmp?.recycle() } catch (_: Exception) { }
         }
+    }
+
+    /**
+     * Önceden hesaplanmış puanlarla en iyi kareyi döndürür; diğerlerini siler (yeniden çözümleme yok).
+     * [scores] kareyle aynı sırada olmalı; eksikse ilk kare seçilir. Eşitlikte ilk kare.
+     */
+    fun bestOf(shots: List<Shot>, scores: List<Int>): File {
+        if (shots.size == 1 || scores.size != shots.size) {
+            for (i in 1 until shots.size) shots[i].file.delete()
+            return shots[0].file
+        }
+        var best = 0
+        for (i in shots.indices) if (scores[i] > scores[best]) best = i
+        for (i in shots.indices) if (i != best) shots[i].file.delete()
+        return shots[best].file
     }
 
     /** En yüksek puanlı kareyi döndürür; diğerlerini siler. Eşitlikte ilk kare. Hiçbiri okunamazsa ilk kare. */

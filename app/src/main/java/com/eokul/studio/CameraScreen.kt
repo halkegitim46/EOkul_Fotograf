@@ -340,14 +340,16 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         val total = if (studio.settings.smartShot) 3 else 1
         val flip = if (lensBack) studio.settings.flipCapture else studio.settings.flipFront
         val shots = ArrayList<BurstPick.Shot>()
+        val scores = ArrayList<Int>()   // kare puanları (shots ile aynı sıra)
         previewView.display?.let { imageCapture.targetRotation = it.rotation }
         try { sound.play(MediaActionSound.SHUTTER_CLICK) } catch (_: Throwable) { }
         previewView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
 
         fun finish() {
             val list = ArrayList(shots)
+            val sc = ArrayList(scores)
             Thread {
-                val best = try { BurstPick.pickBest(list) } catch (e: Throwable) { list[0].file }
+                val best = try { BurstPick.bestOf(list, sc) } catch (e: Throwable) { list[0].file }
                 if (flip) {
                     // EXIF yönünü sağ-sol çevir (kayıpsız). Yön değeri kendi tablomuzla hesaplanır ve yazıldıktan sonra
                     // geri okunarak doğrulanır; kütüphanenin flipHorizontally() çağrısına güvenilmez.
@@ -389,8 +391,20 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                 ContextCompat.getMainExecutor(ctx),
                 object : ImageCapture.OnImageSavedCallback {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                        shots.add(BurstPick.Shot(file, eye))
-                        if (i + 1 < total) one(i + 1) else finish()
+                        val shot = BurstPick.Shot(file, eye)
+                        shots.add(shot)
+                        if (total == 1) {
+                            finish()
+                            return
+                        }
+                        // Kareyi hemen puanla: yeterince iyiyse kalan kareler çekilmez (hız); değilse sıradaki kare çekilir.
+                        Thread {
+                            val sc = try { BurstPick.score(shot) } catch (e: Throwable) { -1 }
+                            ContextCompat.getMainExecutor(ctx).execute {
+                                scores.add(sc)
+                                if (sc >= BurstPick.GOOD_ENOUGH || i + 1 >= total) finish() else one(i + 1)
+                            }
+                        }.start()
                     }
 
                     override fun onError(exception: ImageCaptureException) {
@@ -523,7 +537,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                 noReadySince = 0L
                 // Odak ve pozlamayı yüze kilitle, kısa süre otursun, sonra çek
                 focusAt(l.cx, l.cy, false)
-                delay(350)
+                delay(250)
                 shoot()
             }
         }

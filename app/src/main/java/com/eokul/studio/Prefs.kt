@@ -32,7 +32,7 @@ data class Settings(
     /** Otomatik çekim toleransı çarpanı: <1 sıkı, >1 gevşek. */
     val autoTol: Double = 1.0,
     /** Yüz hazır olduktan sonra çekime kadar bekleme (ms). */
-    val autoHoldMs: Int = 1200,
+    val autoHoldMs: Int = 900,
     /** Akıllı çekim: göz açıklığı, netlik, telefon hareketi denetimi ve 3 kareden en iyisini seçme. */
     val smartShot: Boolean = true,
     /** Kamerayla çekilen fotoğrafı sağ-sol çevir (bazı telefonlarda fotoğraf önizlemeye göre ters kaydedilirse). */

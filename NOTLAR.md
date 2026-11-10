@@ -90,3 +90,13 @@ Bulunup düzeltilenler:
 - `JpegEncoder.encodeFit`: kalite tabanı 40'tı; gürültülü/büyük standartta üst KB sınırı aşılabiliyordu → taban 20.
 - `ImageOps.decode`: bellek yetmezse (≈5 MP çekim + eşzamanlı iş) hata vermek yerine bir kademe daha küçük örnekleyerek yeniden dener (en fazla 2 kez).
 Java testleri 83/83. Kotlin derlenmedi.
+
+## Çekim hızı (araştırma + değişiklikler)
+Öğrenci başına bekleme zinciri (akıllı + otomatik çekim): sabit bekleme 1.2 sn + odak kilidi 0.35 sn + 3 kare art arda (HQ'da her biri ~1 sn) + her kareyi puanlama + tam çözünürlüklü çözme/yüz tespiti + inceleme penceresi 1.2 sn + kaydın bitmesini bekleme (SAF yazma, orijinal sıkıştırma). Ölçüm (masaüstü JVM): Finish ~120 ms, JPEG ~10 ms, Quality ~20 ms → Java tarafı darboğaz değil.
+Yapılanlar:
+- Erken çıkış: kare puanlanır; ≥86 ise kalan kareler çekilmez (çoğu öğrenci tek kare). Daha düşükse sıradaki kare çekilir (en fazla 3), en iyisi seçilir; puanlar yeniden hesaplanmaz (`BurstPick.bestOf`).
+- Kare yüz tespiti FAST moda (göz/gülümseme sınıflandırması korunur).
+- Bekleme süreleri: otomatik çekim sabit bekleme varsayılanı 1.2→0.9 sn (yeni kurulumlarda; kayıtlı ayar korunur), odak kilidi 350→250 ms, otomatik kabul penceresi 1.2→0.7 sn.
+- Arka planda kayıt: öğrenci hemen "çekildi" olur ve sıradakine geçilir; dosyalar sırayla (Mutex) yazılır; hata olursa öğrenci eski haline döner ve uyarı çıkar.
+- Orijinal arşiv kopyası: Java Lanczos yerine yerel ölçekleme + JPEG (HQ çekimde her kayıtta çalışıyordu).
+- Denenmedi: Zero-Shutter-Lag (CameraX deneysel API; destek cihaza bağlı, flaş kapalı olmalı), kamerayı inceleme sırasında açık tutma.
