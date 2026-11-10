@@ -155,7 +155,7 @@ private fun EmptyState(pickFolder: () -> Unit, pickPhotos: () -> Unit) {
         Text("Başlamak için fotoğraf seçin", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Spacer(Modifier.size(6.dp))
         Text(
-            "Fotoğraflar otomatik kırpılır (133×171). Düzenlemek için bir fotoğrafa dokunun.",
+            "Fotoğraflar otomatik kırpılır (${TARGET_W}×${TARGET_H}). Düzenlemek için bir fotoğrafa dokunun.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )

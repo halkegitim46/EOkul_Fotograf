@@ -80,6 +80,7 @@ fun ReviewScreen(studio: StudioViewModel) {
         }
     }
     val preview = rememberPreview(s, studio.settings)
+    var actualSize by remember { mutableStateOf(false) }
     val quality by produceState<Quality.Report?>(null, s, s?.box, s?.loading) {
         val ss = s
         val px = ss?.pixels
@@ -118,12 +119,35 @@ fun ReviewScreen(studio: StudioViewModel) {
                 else -> {
                     val pb = preview?.first
                     if (pb != null) {
-                        Image(
-                            bitmap = pb.asImageBitmap(),
-                            contentDescription = "Önizleme",
-                            filterQuality = FilterQuality.High,
-                            modifier = Modifier.fillMaxHeight().aspectRatio(TARGET_W.toFloat() / TARGET_H).clip(RoundedCornerShape(10.dp))
-                        )
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (actualSize) {
+                                // %100: çıktının her pikseli ekranda bir fiziksel piksel (e-Okul'da görüneceği gerçek boyut)
+                                val dens = androidx.compose.ui.platform.LocalDensity.current
+                                Image(
+                                    bitmap = pb.asImageBitmap(),
+                                    contentDescription = "Önizleme (gerçek boyut)",
+                                    filterQuality = FilterQuality.None,
+                                    modifier = Modifier.size(with(dens) { TARGET_W.toDp() }, with(dens) { TARGET_H.toDp() })
+                                )
+                                Text(
+                                    "Gerçek boyut (%100): ${TARGET_W}×${TARGET_H} piksel, büyütme yok",
+                                    color = Dim, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopCenter)
+                                )
+                            } else {
+                                Image(
+                                    bitmap = pb.asImageBitmap(),
+                                    contentDescription = "Önizleme",
+                                    filterQuality = FilterQuality.High,
+                                    modifier = Modifier.fillMaxHeight().aspectRatio(TARGET_W.toFloat() / TARGET_H).clip(RoundedCornerShape(10.dp))
+                                )
+                            }
+                            AppButton(
+                                if (actualSize) "Büyük göster" else "%100 gerçek boyut",
+                                onClick = { actualSize = !actualSize },
+                                style = BtnStyle.Secondary, dark = true, compact = true,
+                                modifier = Modifier.align(Alignment.BottomEnd)
+                            )
+                        }
                     } else {
                         CircularProgressIndicator()
                     }

@@ -270,6 +270,21 @@ public final class JpegEncoder {
         return out.toByteArray();
     }
 
+    /**
+     * Üst boyut sınırına uyan en yüksek kaliteyi bulur: önce [quality] ile yazılır, [maxBytes]'ı aşarsa kalite
+     * adım adım düşürülür (en fazla 40'a kadar). Alt sınır ([minBytes]) en son COM bölümleriyle tamamlanır.
+     * [maxBytes] 0 ise üst sınır yoktur. Kalite 40'ta bile aşılıyorsa o sonuç döner (çağıran boyutu denetler).
+     */
+    public static byte[] encodeFit(int[] argb, int w, int h, int quality, int dpi, byte[] icc, int minBytes, int maxBytes) {
+        int q = quality;
+        byte[] out = encode(argb, w, h, q, dpi, icc, 0);
+        while (maxBytes > 0 && out.length > maxBytes && q > 40) {
+            q = Math.max(40, q - (out.length > maxBytes * 3 / 2 ? 8 : 3));
+            out = encode(argb, w, h, q, dpi, icc, 0);
+        }
+        return out.length >= minBytes ? out : encode(argb, w, h, q, dpi, icc, minBytes);
+    }
+
     private static byte[] dht(int tcTh, int[] bits, int[] vals) {
         byte[] b = new byte[1 + 16 + vals.length];
         b[0] = (byte) tcTh;

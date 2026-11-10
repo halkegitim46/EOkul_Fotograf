@@ -6,9 +6,10 @@ import com.eokul.studio.core.Crop
 import kotlin.math.abs
 
 /** Hedef fotoğraf boyutu (e-Okul vesikalık). */
-const val TARGET_W = 133
-const val TARGET_H = 171
-const val RATIO = TARGET_W.toDouble() / TARGET_H
+/** Ayarlardan okunur (varsayılan 133x171); standart değişirse tüm ekranlar yeni değeri kullanır. */
+val TARGET_W: Int get() = SettingsState.current.photoW
+val TARGET_H: Int get() = SettingsState.current.photoH
+val RATIO: Double get() = TARGET_W.toDouble() / TARGET_H
 
 /** Kırpma kutusu — çalışma görüntüsünün piksel koordinatlarında. */
 data class Box(val x1: Double, val y1: Double, val x2: Double, val y2: Double) {

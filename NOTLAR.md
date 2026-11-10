@@ -73,3 +73,12 @@ Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite o
 - Her kare ayrı çözümlenir (ML Kit, sınıflandırma açık): o karenin göz açıklığı, gülümseme, baş açısı, gerçek yüz bölgesinde netlik/ışık.
 - `core/Burst.java` cezaları: yüz yok −35, gözler kapalı −25, gülümseme en çok −14 (0.35→0.80 arası), arka ışık/parlama −10, tek yandan ışık −6. Bilinmeyen değer ceza almaz.
 - Önceki sürümde canlı önizlemedeki tek göz değeri tüm karelere yazılıyordu; artık yalnızca yüz çözümlenemezse yedek.
+
+## Küçültme sonrası netlik / "kumlu" görüntü, %100 önizleme, ayarlanabilir standart
+Ölçüm (sentetik portre, 1200x1600 → 133x171, lekeli telefon gürültüsü + JPEG q88; `sharp/` deneyleri):
+- Küçültmeden önceki gürültü azaltma yalnızca kırpma <399 px iken çalışıyordu; gerçek (ilintili) gürültü küçültmeyle yok olmuyor, çıktıda ideale göre 2.5–4× kalıyordu. Keskinleştirme (0.35) gürültüyü ~%30 büyütüyordu.
+- Yeni `Finish`: gürültü azaltma kırpma boyutuna değil ölçülen gürültüye bağlı (σ>1.2), keskinleştirme gürültü arttıkça 0'a doğru azalır (σ/6, en çok %80). Sonuç: PSNR +1…3 dB, çıktı gürültüsü ~%30 az, kenar aşırı vurgusu azaldı.
+- Çekim: "Yüksek kaliteli çekim" (Ayarlar › Çekim, varsayılan açık): MAXIMIZE_QUALITY, ~2560x1920, JPEG 95; kapalıysa eski hızlı mod (1600x1200, MINIMIZE_LATENCY). Çalışma görüntüsü sınırı 2000 → 2700 (aksi halde 2592 px kare yarıya inip 1296'ya düşerdi).
+- İnceleme ekranında "%100 gerçek boyut": çıktı 1 piksel = 1 ekran pikseli, büyütme/yumuşatma yok (e-Okul'da görünecek boyut). Büyütülmüş önizleme 133 px'i 3x+ ölçekler ve doğal olarak kumlu/bulanık görünür.
+- Fotoğraf standardı ayarlanabilir: genişlik, yükseklik, min/maks KB (Ayarlar › Gelişmiş çıktı). `JpegEncoder.encodeFit`: maks KB'ı aşarsa kalite otomatik düşer. Standart değişince eski fotoğraflar değişmez; Veri denetimi yanlış boyutluları listeler.
+- Java testleri 68/68 (FinishNoiseTest, EncodeFitTest yeni). Kotlin derlenmedi.

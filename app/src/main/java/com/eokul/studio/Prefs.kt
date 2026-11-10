@@ -11,6 +11,13 @@ data class Settings(
     val headFrac: Double = 0.62,
     val jpegQuality: Int = 100,
     val minKb: Int = 20,
+    /** Üst dosya boyutu (KB); kalite bu sınıra uyacak şekilde otomatik düşürülür. */
+    val maxKb: Int = 150,
+    /** Çıktı fotoğrafı boyutu (piksel). Varsayılan e-Okul: 133x171. */
+    val photoW: Int = 133,
+    val photoH: Int = 171,
+    /** Yüksek kaliteli çekim: kameranın en iyi görüntü işlemesi + ~5 MP (biraz yavaş); kapalıysa hızlı ~2 MP. */
+    val hqCapture: Boolean = true,
     val embedSrgb: Boolean = true,
     val nameRegex: String = "^\\d{5,11}$",
     val outputDir: String = "E_Okul_Kayitlar",
@@ -45,6 +52,8 @@ data class Settings(
         val p = Crop.Params()
         p.topGap = topGap
         p.headFrac = headFrac
+        p.targetW = photoW
+        p.targetH = photoH
         return p
     }
 }
@@ -68,6 +77,10 @@ class Prefs(context: Context) {
             headFrac = (sp.getString("headFrac", null)?.toDoubleOrNull() ?: d.headFrac).coerceIn(0.45, 0.80),
             jpegQuality = sp.getInt("jpegQuality", d.jpegQuality).coerceIn(70, 100),
             minKb = sp.getInt("minKb", d.minKb).coerceIn(1, 500),
+            maxKb = sp.getInt("maxKb", d.maxKb).coerceIn(5, 5000),
+            photoW = sp.getInt("photoW", d.photoW).coerceIn(40, 1200),
+            photoH = sp.getInt("photoH", d.photoH).coerceIn(40, 1600),
+            hqCapture = sp.getBoolean("hqCapture", d.hqCapture),
             embedSrgb = sp.getBoolean("embedSrgb", d.embedSrgb),
             nameRegex = regex,
             outputDir = outDir,
@@ -94,6 +107,10 @@ class Prefs(context: Context) {
             .putString("headFrac", s.headFrac.toString())
             .putInt("jpegQuality", s.jpegQuality)
             .putInt("minKb", s.minKb)
+            .putInt("maxKb", s.maxKb)
+            .putInt("photoW", s.photoW)
+            .putInt("photoH", s.photoH)
+            .putBoolean("hqCapture", s.hqCapture)
             .putBoolean("embedSrgb", s.embedSrgb)
             .putString("nameRegex", s.nameRegex)
             .putString("outputDir", s.outputDir)

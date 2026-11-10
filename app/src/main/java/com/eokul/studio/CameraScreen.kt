@@ -168,16 +168,18 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         }
     }
     val imageCapture = remember {
-        // Standart kalite: ~2 MP (1600x1200). 133x171 çıktı için fazlasıyla yeterli; dosya küçük, gürültü az.
+        // Yüksek kalite (varsayılan): kameranın en iyi görüntü işlemesi (gürültü azaltma dahil), ~5 MP, JPEG 95.
+        // Kapalıysa hızlı mod: ~2 MP (1600x1200), JPEG 90. Ayar bir sonraki kamera açılışında geçerli olur.
+        val hq = studio.settings.hqCapture
         ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-            .setJpegQuality(90)
+            .setCaptureMode(if (hq) ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY else ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setJpegQuality(if (hq) 95 else 90)
             .setResolutionSelector(
                 ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(
                         androidx.camera.core.resolutionselector.ResolutionStrategy(
-                            android.util.Size(1600, 1200),
+                            if (hq) android.util.Size(2560, 1920) else android.util.Size(1600, 1200),
                             androidx.camera.core.resolutionselector.ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )

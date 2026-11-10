@@ -44,8 +44,10 @@ public final class Finish {
         double sigma = noiseSigma(Y, iw, ih);
 
         int[] mid = inter;
-        if (o.denoise && downscaled && bw < dw * 3.0 && sigma > 1.5) {
-            double cs = clamp(0.8 + sigma * 0.15, 0.8, 2.0);
+        // Gürültü azaltma kırpma boyutuna bakmaz, ölçülen gürültüye bakar: gerçek telefon gürültüsü (lekeli renk,
+        // ilintili parlaklık) küçültmeyle yok olmaz; ölçümde ideale göre 2-4 kat kalıyordu.
+        if (o.denoise && sigma > 1.2) {
+            double cs = clamp(0.8 + sigma * 0.15, 0.8, 2.5);
             Cb = gauss(Cb, iw, ih, cs);
             Cr = gauss(Cr, iw, ih, cs);
             Y = bilateral(Y, iw, ih, 1.3, clamp(2.2 * sigma, 3.0, 26.0));
@@ -53,7 +55,8 @@ public final class Finish {
         }
         int[] out = (iw == dw && ih == dh) ? mid : Lanczos.cropResize(mid, iw, ih, 0, 0, iw, ih, dw, dh);
 
-        double amount = o.sharpen * (1.0 - Math.min(0.7, sigma / 12.0));
+        // Gürültülü karede keskinleştirme gürültüyü de büyütür: ölçülen gürültü arttıkça azalır
+        double amount = o.sharpen * (1.0 - Math.min(0.8, sigma / 6.0));
         if (amount > 0.01) out = unsharp(out, dw, dh, amount);
         return out;
     }

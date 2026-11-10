@@ -64,6 +64,10 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     var headFrac by remember { mutableStateOf(cur.headFrac.toFloat()) }
     var quality by remember { mutableStateOf(cur.jpegQuality.toFloat()) }
     var minKb by remember { mutableStateOf(cur.minKb.toString()) }
+    var maxKb by remember { mutableStateOf(cur.maxKb.toString()) }
+    var photoW by remember { mutableStateOf(cur.photoW.toString()) }
+    var photoH by remember { mutableStateOf(cur.photoH.toString()) }
+    var hqCap by remember { mutableStateOf(cur.hqCapture) }
     var regex by remember { mutableStateOf(cur.nameRegex) }
     var outDir by remember { mutableStateOf(cur.outputDir) }
     var embed by remember { mutableStateOf(cur.embedSrgb) }
@@ -80,10 +84,17 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
 
     fun build(): Settings? {
         val kb = minKb.trim().toIntOrNull()
+        val mkb = maxKb.trim().toIntOrNull()
+        val pw = photoW.trim().toIntOrNull()
+        val ph = photoH.trim().toIntOrNull()
         val dir = outDir.trim()
         val rx = regex.trim()
         val problem: String? = when {
             kb == null || kb !in 1..500 -> "Minimum boyut 1–500 KB arasında olmalı"
+            mkb == null || mkb !in 5..5000 -> "Maksimum boyut 5–5000 KB arasında olmalı"
+            mkb < kb -> "Maksimum boyut, minimum boyuttan küçük olamaz"
+            pw == null || pw !in 40..1200 -> "Genişlik 40–1200 piksel arasında olmalı"
+            ph == null || ph !in 40..1600 -> "Yükseklik 40–1600 piksel arasında olmalı"
             dir.isEmpty() -> "Çıktı klasörü adı boş olamaz"
             dir.any { it in "\\/:*?\"<>|" } || dir == "." || dir == ".." -> "Çıktı klasörü adı geçersiz karakter içeriyor"
             else -> try {
@@ -94,7 +105,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             }
         }
         error = problem
-        if (problem != null || kb == null) return null
+        if (problem != null || kb == null || mkb == null || pw == null || ph == null) return null
         return vm.settings.copy(
             serialMode = serial,
             autoTol = (autoTol * 100.0).roundToInt() / 100.0,
@@ -109,6 +120,10 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             headFrac = (headFrac * 100.0).roundToInt() / 100.0,
             jpegQuality = quality.roundToInt(),
             minKb = kb,
+            maxKb = mkb,
+            photoW = pw,
+            photoH = ph,
+            hqCapture = hqCap,
             embedSrgb = embed,
             nameRegex = rx,
             outputDir = dir
@@ -157,6 +172,16 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             Switch(checked = smart, onCheckedChange = { smart = it })
             Text("  Akıllı çekim", style = MaterialTheme.typography.bodyMedium)
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(checked = hqCap, onCheckedChange = { hqCap = it })
+            Text("  Yüksek kaliteli çekim", style = MaterialTheme.typography.bodyMedium)
+        }
+        Text(
+            "Kameranın en iyi görüntü işlemesini (gürültü azaltma dahil) ve ~5 MP çözünürlüğü kullanır; çekim biraz yavaşlar. " +
+                "Kapatırsanız hızlı mod (~2 MP) kullanılır. Kamera ekranı yeniden açılınca geçerli olur.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.size(6.dp))
         Text(
             "Gözler kapalıysa, görüntü net değilse veya telefon sallanıyorsa çekimi bekletir; her çekimde 3 kare alıp en netini seçer (çekim yaklaşık 1 sn sürer).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -203,7 +228,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         )
 
         }
-        SettingsCard("Kırpma", "Baş konumu ve boyutu (e-Okul 133×171)") {
+        SettingsCard("Kırpma", "Baş konumu ve boyutu (${cur.photoW}×${cur.photoH})") {
         Text("Saç üstü boşluk: %${(topGap * 100).roundToInt()}", style = MaterialTheme.typography.bodyMedium)
         Slider(value = topGap, onValueChange = { topGap = it }, valueRange = 0.01f..0.10f, steps = 8)
         Text(
@@ -236,6 +261,40 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         Spacer(Modifier.size(8.dp))
         TextButton(onClick = { advanced = !advanced }) { Text(if (advanced) "▾ Gelişmiş çıktı ayarlarını gizle" else "▸ Gelişmiş çıktı ayarları (boyut, klasör adı, dosya adı kuralı)") }
         if (advanced) {
+        Spacer(Modifier.size(10.dp))
+        Text("Fotoğraf standardı", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = photoW, onValueChange = { photoW = it },
+                label = { Text("Genişlik (px)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = photoH, onValueChange = { photoH = it },
+                label = { Text("Yükseklik (px)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.size(8.dp))
+        OutlinedTextField(
+            value = maxKb, onValueChange = { maxKb = it },
+            label = { Text("Maksimum dosya boyutu (KB)") }, singleLine = true,
+            supportingText = { Text("Dosya bu sınırı aşarsa JPEG kalitesi otomatik düşürülür (sınıra uyan en yüksek kalite seçilir).") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "Standart (boyut ve KB sınırları) değişirse yalnızca bundan sonra çekilen veya yeniden kırpılan fotoğraflar yeni standartta üretilir; " +
+                "eskiler olduğu gibi kalır. Eski boyutlu olanları “Veri denetimi” listeler.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.size(4.dp))
+        TextButton(onClick = {
+            photoW = def.photoW.toString(); photoH = def.photoH.toString()
+            minKb = def.minKb.toString(); maxKb = def.maxKb.toString()
+        }) { Text("e-Okul standardına dön (${def.photoW}×${def.photoH}, ${def.minKb}–${def.maxKb} KB)") }
         Spacer(Modifier.size(10.dp))
         OutlinedTextField(
             value = minKb, onValueChange = { minKb = it },

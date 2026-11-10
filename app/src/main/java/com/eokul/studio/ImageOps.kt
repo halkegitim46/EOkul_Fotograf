@@ -106,9 +106,9 @@ class PersonMask(val w: Int, val h: Int, val data: FloatArray)
 
 object ImageOps {
     /** Çalışma görüntüsünün en uzun kenarı (bellek için); çıktı yalnızca 133x171 olduğundan yeterlidir. */
-    const val MAX_SIDE = 2000
+    const val MAX_SIDE = 2700
     const val THUMB_W = 160
-    val THUMB_H: Int = (THUMB_W * TARGET_H.toDouble() / TARGET_W).roundToInt()
+    val THUMB_H: Int get() = (THUMB_W * TARGET_H.toDouble() / TARGET_W).roundToInt()
     private const val DETECT_SIDE = 1280
 
     @Volatile
@@ -277,10 +277,10 @@ object ImageOps {
     fun finalPixels(pixels: IntArray, w: Int, h: Int, box: Box): IntArray =
         Finish.render(pixels, w, h, box.toArray(), TARGET_W, TARGET_H, Finish.Opts())
 
-    /** 133x171 JPEG: 4:4:4, 300 DPI, isteğe bağlı sRGB profili, en az [Settings.minKb] KB. */
+    /** Standart boyutta (varsayılan 133x171) JPEG: 4:4:4, 300 DPI, isteğe bağlı sRGB profili, [Settings.minKb]–[Settings.maxKb] KB. */
     fun encode(ctx: Context, px: IntArray, s: Settings): ByteArray {
         val icc = if (s.embedSrgb) srgbProfile(ctx) else null
-        return JpegEncoder.encode(px, TARGET_W, TARGET_H, s.jpegQuality, 300, icc, s.minKb * 1024 + 200)
+        return JpegEncoder.encodeFit(px, TARGET_W, TARGET_H, s.jpegQuality, 300, icc, s.minKb * 1024 + 200, s.maxKb * 1024)
     }
 
     fun render(ctx: Context, pixels: IntArray, w: Int, h: Int, box: Box, s: Settings): ByteArray =
