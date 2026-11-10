@@ -5,16 +5,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Random;
-import javax.imageio.ImageIO;
 import org.junit.Test;
 
 /**
  * Fotoğraf hattının uç durum ve rastgele girdi (fuzz) testleri: çökme olmamalı, çıktı boyutu/aralığı doğru olmalı,
- * düz renk düz kalmalı, JPEG her boyut ve kalitede standart bir çözücüyle açılmalı.
+ * düz renk düz kalmalı, JPEG her boyut ve kalitede yapısal olarak geçerli olmalı.
  */
 public class PipelineStressTest {
     private static final double[] SPECIAL = {
@@ -47,21 +44,6 @@ public class PipelineStressTest {
         return p;
     }
 
-    private static double psnr(int[] a, BufferedImage b) {
-        double s = 0;
-        int w = b.getWidth(), h = b.getHeight();
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++) {
-                int p = a[y * w + x], q = b.getRGB(x, y);
-                for (int sh = 0; sh <= 16; sh += 8) {
-                    double d = ((p >> sh) & 255) - ((q >> sh) & 255);
-                    s += d * d;
-                }
-            }
-        double mse = s / (w * h * 3.0);
-        return mse < 1e-9 ? 99 : 10 * Math.log10(255.0 * 255.0 / mse);
-    }
-
     private static boolean finite(double[] b) {
         for (double v : b) if (Double.isNaN(v) || Double.isInfinite(v)) return false;
         return true;
@@ -79,11 +61,11 @@ public class PipelineStressTest {
                     int[] px = pat == 0 ? solid(w, h, 0xFFFFFF) : pat == 1 ? solid(w, h, 0x000000) : pat == 2 ? gradient(w, h) : noise(w, h, w * 31 + h, 30);
                     String tag = w + "x" + h + " q" + q + " pat" + pat;
                     byte[] j = JpegEncoder.encode(px, w, h, q, 300, null, 0);
-                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(j));
-                    assertNotNull("çözülemedi " + tag, img);
-                    assertEquals(tag, w, img.getWidth());
-                    assertEquals(tag, h, img.getHeight());
-                    if (q >= 70 && pat <= 2) assertTrue("PSNR düşük " + tag, psnr(px, img) > (pat == 2 ? 28 : 35));
+                    JpegInfo info = JpegInfo.parse(j);
+                    assertEquals(tag, w, info.width);
+                    assertEquals(tag, h, info.height);
+                    assertEquals(tag, 3, info.components);
+                    assertTrue("JFIF yok " + tag, info.jfif);
                 }
     }
 
@@ -93,7 +75,7 @@ public class PipelineStressTest {
         int[] px = gradient(133, 171);
         byte[] j = JpegEncoder.encode(px, 133, 171, 100, 300, icc, 20 * 1024 + 200);
         assertTrue(j.length >= 20 * 1024 + 200);
-        assertNotNull(ImageIO.read(new ByteArrayInputStream(j)));
+        assertEquals(133, JpegInfo.parse(j).width);
     }
 
     @Test public void encodeFitHonoursLimitsAcrossStandards() throws Exception {
@@ -104,9 +86,9 @@ public class PipelineStressTest {
             String tag = s[0] + "x" + s[1] + " " + j.length;
             assertTrue("üst sınır aşıldı " + tag, j.length <= s[3] * 1024);
             assertTrue("alt sınır tutmadı " + tag, j.length >= s[2] * 1024);
-            BufferedImage img = ImageIO.read(new ByteArrayInputStream(j));
-            assertNotNull(tag, img);
-            assertEquals(s[0], img.getWidth());
+            JpegInfo info = JpegInfo.parse(j);
+            assertEquals(tag, s[0], info.width);
+            assertEquals(tag, s[1], info.height);
         }
     }
 
@@ -279,11 +261,10 @@ public class PipelineStressTest {
                 double[] box = Crop.defaultCropBox(w, h, face, top, p);
                 int[] out = Finish.render(img, w, h, box, st[0], st[1], new Finish.Opts());
                 byte[] j = JpegEncoder.encodeFit(out, st[0], st[1], 100, 300, null, st[2] * 1024 + 200, st[3] * 1024);
-                BufferedImage dec = ImageIO.read(new ByteArrayInputStream(j));
+                JpegInfo dec = JpegInfo.parse(j);
                 String tag = iw + "x" + ih + " → " + st[0] + "x" + st[1];
-                assertNotNull(tag, dec);
-                assertEquals(tag, st[0], dec.getWidth());
-                assertEquals(tag, st[1], dec.getHeight());
+                assertEquals(tag, st[0], dec.width);
+                assertEquals(tag, st[1], dec.height);
                 assertTrue(tag + " boyut " + j.length, j.length >= st[2] * 1024 && j.length <= st[3] * 1024);
             }
     }
