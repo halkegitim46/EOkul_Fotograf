@@ -226,6 +226,11 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         persist()
     }
 
+    /** Sınıftaki tüm "tekrar çekilmeli" işaretlerini kaldırır (eski sürümün hatalı işaretleri için). */
+    fun clearRetakeFlags(classId: String) {
+        updateClass(classId) { c -> c.copy(students = c.students.map { if (it.retake) it.copy(retake = false) else it }) }
+    }
+
     fun toggleRetake(classId: String, no: String) {
         updateStudent(classId, no) { it.copy(retake = !it.retake) }
     }

@@ -156,33 +156,50 @@ fun ReviewScreen(studio: StudioViewModel) {
         }
 
         if (s != null && !cap.loading) {
+            // Uyarılar iki türdür. AĞIR (yüz yok, bulanık, çok karanlık, baş/çene kesik, eğik…): yeniden çekim önerilir,
+            // otomatik kaydı durdurur. BİLGİ (ışık dengesi, hafif kadraj sapması): görünür ama fotoğrafı "yeniden çekilmeli"
+            // işaretlemez ve otomatik kaydı engellemez; yalnızca puanı hafif düşürür.
             val warnings = ArrayList<String>()
-            if (s.faces.isEmpty()) warnings.add("⚠ Yüz bulunamadı — alanı elle ayarlayın veya yeniden çekin.")
-            if (s.faces.size > 1) warnings.add("⚠ ${s.faces.size} yüz algılandı — en büyüğü seçildi. Doğruluğunu kontrol edin.")
-            if (s.box.width < TARGET_W) warnings.add("⚠ Kırpılan alan hedef çözünürlükten küçük; görüntü bulanık olabilir.")
+            var hardCount = 0
+            var frameIssues = 0
+            fun hard(msg: String, frame: Boolean = false) {
+                warnings.add(msg)
+                hardCount++
+                if (frame) frameIssues++
+            }
+            fun soft(msg: String, frame: Boolean = false) {
+                warnings.add(msg)
+                if (frame) frameIssues++
+            }
+            if (s.faces.isEmpty()) hard("⚠ Yüz bulunamadı — alanı elle ayarlayın veya yeniden çekin.", true)
+            if (s.faces.size > 1) soft("⚠ ${s.faces.size} yüz algılandı — en büyüğü seçildi. Doğruluğunu kontrol edin.", true)
+            if (s.box.width < TARGET_W) hard("⚠ Kırpılan alan hedef çözünürlükten küçük; görüntü bulanık olabilir.", true)
             val q = quality
             if (q != null) {
-                if (q.blurry()) warnings.add("⚠ Fotoğraf bulanık görünüyor — yeniden çekmeniz önerilir.")
-                if (q.dark()) warnings.add("⚠ Fotoğraf çok karanlık — daha aydınlık bir yerde çekin.")
-                if (q.bright()) warnings.add("⚠ Fotoğraf aşırı parlak — ışığı azaltın.")
-                if (q.flat() && !q.dark() && !q.bright()) warnings.add("⚠ Fotoğraf soluk / düşük kontrastlı — yüzü ve arka planı ayıran daha iyi ışık kullanın.")
+                if (q.blurry()) hard("⚠ Fotoğraf bulanık görünüyor — yeniden çekmeniz önerilir.")
+                if (q.dark()) hard("⚠ Fotoğraf çok karanlık — daha aydınlık bir yerde çekin.")
+                if (q.bright()) hard("⚠ Fotoğraf aşırı parlak — ışığı azaltın.")
+                if (q.flat() && !q.dark() && !q.bright()) soft("⚠ Fotoğraf soluk / düşük kontrastlı — yüzü ve arka planı ayıran daha iyi ışık kullanın.")
             }
+            var lightCode = com.eokul.studio.core.Lighting.OK
             val f0 = s.faces.firstOrNull()
             if (f0 != null) {
                 // Işık dengesi: yüz ile arka plan ve yüzün iki yarısı karşılaştırılır (canlı kameradaki ölçümle aynı mantık)
                 val light = androidx.compose.runtime.remember(s.pixels, f0) {
                     com.eokul.studio.core.Lighting.analyzeScaled(s.pixels, s.iw, s.ih, f0.box.x1, f0.box.y1, f0.box.x2, f0.box.y2)
                 }
-                when (light?.code) {
+                lightCode = light?.code ?: com.eokul.studio.core.Lighting.OK
+                when (lightCode) {
                     com.eokul.studio.core.Lighting.BACKLIT ->
-                        warnings.add("⚠ Arka ışık: yüz arka plandan belirgin koyu — pencereye sırtınız dönük olmasın, ışığa doğru dönüp yeniden çekin.")
+                        soft("ℹ Arka ışık: yüz karanlık kalmış — pencereye sırtınız dönük olmasın, ışığa doğru dönün.")
                     com.eokul.studio.core.Lighting.UNEVEN ->
-                        warnings.add("⚠ Yüze tek yandan ışık vuruyor — ışığa doğru dönüp yeniden çekin.")
+                        soft("ℹ Yüze tek yandan ışık vuruyor — ışığa doğru dönmek daha iyi olur.")
                     com.eokul.studio.core.Lighting.GLARE ->
-                        warnings.add("⚠ Yüzde parlama / patlak bölge var — doğrudan ışıktan uzaklaşıp yeniden çekin.")
+                        soft("ℹ Yüzde parlama / patlak bölge var — doğrudan ışıktan uzaklaşın.")
                 }
                 for (code in com.eokul.studio.core.Framing.check(f0.box.toArray(), f0.headTop, f0.eyes, s.box.toArray())) {
-                    warnings.add(
+                    val isHard = code == com.eokul.studio.core.Framing.HEAD_CUT || code == com.eokul.studio.core.Framing.CHIN_CUT
+                    val msg =
                         when (code) {
                             com.eokul.studio.core.Framing.HEAD_CUT -> "⚠ Başın üst kısmı kadraj dışında kalıyor — kırpma alanını yukarı taşıyın (✂ Düzenle)."
                             com.eokul.studio.core.Framing.HEAD_TIGHT -> "⚠ Baş üstü boşluğu çok az — kırpma alanını biraz yukarı alın."
@@ -193,18 +210,21 @@ fun ReviewScreen(studio: StudioViewModel) {
                             com.eokul.studio.core.Framing.EYE_LEVEL -> "⚠ Göz hizası beklenen aralığın dışında — kadrajı kontrol edin."
                             else -> "⚠ Göz çizgisi eğik — başı dik tutturup tekrar çekin."
                         }
-                    )
+                    if (isHard) hard(msg, true) else soft(msg, true)
                 }
-                if (Math.abs(f0.roll) > 10f) warnings.add("⚠ Baş yana eğik (${Math.abs(f0.roll).toInt()}°) — başı dik tutturun.")
-                if (Math.abs(f0.yaw) > 15f) warnings.add("⚠ Yüz kameraya dönük değil (${Math.abs(f0.yaw).toInt()}°) — karşıdan çekin.")
+                if (Math.abs(f0.roll) > 10f) hard("⚠ Baş yana eğik (${Math.abs(f0.roll).toInt()}°) — başı dik tutturun.")
+                if (Math.abs(f0.yaw) > 15f) hard("⚠ Yüz kameraya dönük değil (${Math.abs(f0.yaw).toInt()}°) — karşıdan çekin.")
             }
-            androidx.compose.runtime.LaunchedEffect(warnings.size) { cap.warned = warnings.isNotEmpty() }
+            androidx.compose.runtime.LaunchedEffect(hardCount) { cap.warned = hardCount > 0 }
             val f1 = s.faces.firstOrNull()
             val score = if (q != null && f1 != null) {
-                Score.total(
-                    if (warnings.isEmpty()) 0.0 else 1.5, q.blurRatio,
+                // Kadraj sapması dereceli: sorun yoksa 0, her ek sorun biraz daha düşürür (önceden herhangi bir uyarı −15 puandı)
+                val dev = when (frameIssues) { 0 -> 0.0; 1 -> 0.7; 2 -> 1.3; else -> 2.0 }
+                val base = Score.total(
+                    dev, q.blurRatio,
                     Math.abs(f1.roll).toDouble(), Math.abs(f1.yaw).toDouble(), q.brightness, q.contrast, -1.0
                 )
+                com.eokul.studio.core.Burst.total(base, true, -1.0, -1.0, lightCode)
             } else -1
             androidx.compose.runtime.LaunchedEffect(score) { if (score >= 0) cap.score = score }
             val kbNow = (preview?.second ?: 0) / 1024.0
@@ -246,7 +266,7 @@ fun ReviewScreen(studio: StudioViewModel) {
                 }
             }
             val autoPending = studio.settings.autoAccept && !cap.fromSaved && !autoStopped &&
-                cap.error == null && !cap.saving && score >= studio.settings.autoAcceptScore && warnings.isEmpty()
+                cap.error == null && !cap.saving && score >= studio.settings.autoAcceptScore && hardCount == 0
             LaunchedEffect(autoPending) {
                 if (autoPending) {
                     delay(700)

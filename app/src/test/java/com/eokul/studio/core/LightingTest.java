@@ -35,6 +35,23 @@ public class LightingTest {
         assertEquals(Lighting.BACKLIT, run(frame(215, 85, 85)).code);
     }
 
+    @Test public void whiteWallWithWellExposedFaceIsNotBacklit() {
+        // Yüze pozlanmış kamera: yüz orta tonda, düz beyaz arka plan çok parlak. Bu istenen durumdur, arka ışık değil.
+        assertEquals(Lighting.OK, run(frame(235, 135, 135)).code);
+        assertEquals(Lighting.OK, run(frame(225, 125, 125)).code);
+        assertEquals(Lighting.OK, run(frame(215, 110, 110)).code);
+        assertEquals(Lighting.OK, run(frame(240, 150, 150)).code);
+    }
+
+    @Test public void darkSkinWellExposedOnWhiteWallIsNotBacklit() {
+        assertEquals(Lighting.OK, run(frame(230, 100, 100)).code);
+    }
+
+    @Test public void veryDarkFaceAgainstWindowIsBacklit() {
+        assertEquals(Lighting.BACKLIT, run(frame(240, 70, 70)).code);
+        assertEquals(Lighting.BACKLIT, run(frame(200, 60, 60)).code);
+    }
+
     @Test public void darkRoomIsNotBacklit() {
         // arka plan da karanlık: bu "karanlık" sorunudur (Quality), arka ışık değil
         assertEquals(Lighting.OK, run(frame(60, 55, 55)).code);

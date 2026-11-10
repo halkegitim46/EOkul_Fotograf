@@ -196,6 +196,10 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
                     selected = filter == Filter.RETAKE, onClick = { filter = Filter.RETAKE },
                     label = { Text("🔁 Tekrar $retakeCount") }
                 )
+                if (retakeCount > 0 && filter == Filter.RETAKE) FilterChip(
+                    selected = false, onClick = { studio.clearRetakeFlags(cls.id); filter = Filter.ALL },
+                    label = { Text("✕ Tüm işaretleri temizle") }
+                )
                 val lowCount = cls.students.count { it.isLow() }
                 if (lowCount > 0) FilterChip(
                     selected = filter == Filter.LOW, onClick = { filter = Filter.LOW },
