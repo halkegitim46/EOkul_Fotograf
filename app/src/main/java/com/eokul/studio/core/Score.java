@@ -19,11 +19,13 @@ public final class Score {
      */
     public static int total(double framingDev, double blurRatio, double roll, double yaw,
                             double brightness, double contrast, double eyeOpen) {
-        double f = 25 * clamp(1 - Math.max(0, framingDev) / 2.5);
+        // Bilinmeyen (NaN) ölçüm tüm puanı sıfırlamamalı: orta değer alır
+        double f = Double.isNaN(framingDev) ? 20 : 25 * clamp(1 - Math.max(0, framingDev) / 2.5);
 
         double s = Double.isNaN(blurRatio) ? 18 : 25 * clamp((0.40 - blurRatio) / (0.40 - 0.12));
 
-        double a = 10 * clamp(1 - Math.abs(roll) / 20.0) + 10 * clamp(1 - Math.abs(yaw) / 30.0);
+        double a = (Double.isNaN(roll) ? 10 : 10 * clamp(1 - Math.abs(roll) / 20.0))
+            + (Double.isNaN(yaw) ? 10 : 10 * clamp(1 - Math.abs(yaw) / 30.0));
 
         double light;
         if (Double.isNaN(brightness)) {

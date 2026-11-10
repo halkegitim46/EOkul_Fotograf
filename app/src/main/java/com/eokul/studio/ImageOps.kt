@@ -135,13 +135,25 @@ object ImageOps {
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / sample > MAX_SIDE) sample *= 2
 
-        val opts = BitmapFactory.Options().apply {
-            inSampleSize = sample
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-            inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+        // Bellek yetmezse (büyük çekim + eşzamanlı işler) bir kademe daha küçük örnekleyerek yeniden dener:
+        // kullanıcı hata yerine biraz düşük çözünürlüklü ama çalışan bir görüntü alır (çıktı zaten 133x171).
+        var bmp: Bitmap? = null
+        var attempt = 0
+        while (bmp == null) {
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+            }
+            try {
+                bmp = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+                    ?: throw IOException("Resim çözülemedi")
+            } catch (e: OutOfMemoryError) {
+                if (++attempt > 2) throw e
+                sample *= 2
+                System.gc()
+            }
         }
-        var bmp: Bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
-            ?: throw IOException("Resim çözülemedi")
 
         val orientation = try {
             resolver.openInputStream(uri)?.use {
@@ -152,6 +164,7 @@ object ImageOps {
         } catch (e: Exception) {
             ExifInterface.ORIENTATION_NORMAL
         }
+        var cur: Bitmap = bmp ?: throw IOException("Resim çözülemedi")
         val m = Matrix()
         when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
@@ -169,19 +182,19 @@ object ImageOps {
             }
         }
         if (!m.isIdentity) {
-            val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
-            if (rotated !== bmp) bmp.recycle()
-            bmp = rotated
+            val rotated = Bitmap.createBitmap(cur, 0, 0, cur.width, cur.height, m, true)
+            if (rotated !== cur) cur.recycle()
+            cur = rotated
         }
-        if (bmp.hasAlpha()) {
-            val flat = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+        if (cur.hasAlpha()) {
+            val flat = Bitmap.createBitmap(cur.width, cur.height, Bitmap.Config.ARGB_8888)
             val c = Canvas(flat)
             c.drawColor(Color.WHITE)
-            c.drawBitmap(bmp, 0f, 0f, null)
-            bmp.recycle()
-            bmp = flat
+            c.drawBitmap(cur, 0f, 0f, null)
+            cur.recycle()
+            cur = flat
         }
-        return bmp
+        return cur
     }
 
     /**

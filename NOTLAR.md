@@ -82,3 +82,11 @@ Seri çekimde son öğrenci de bitince özet mesajı: tamamlanan sayı, kalite o
 - İnceleme ekranında "%100 gerçek boyut": çıktı 1 piksel = 1 ekran pikseli, büyütme/yumuşatma yok (e-Okul'da görünecek boyut). Büyütülmüş önizleme 133 px'i 3x+ ölçekler ve doğal olarak kumlu/bulanık görünür.
 - Fotoğraf standardı ayarlanabilir: genişlik, yükseklik, min/maks KB (Ayarlar › Gelişmiş çıktı). `JpegEncoder.encodeFit`: maks KB'ı aşarsa kalite otomatik düşer. Standart değişince eski fotoğraflar değişmez; Veri denetimi yanlış boyutluları listeler.
 - Java testleri 68/68 (FinishNoiseTest, EncodeFitTest yeni). Kotlin derlenmedi.
+
+## Dayanıklılık taraması (PipelineStressTest, 15 test)
+Rastgele/uç girdilerle: JPEG (1x1…600x800, kalite 1–100, düz/gradyan/gürültü) standart çözücüyle açılıyor; 400 rastgele kırpma ve 160 Finish koşusu çökmeden doğru boyut/aralık üretiyor, düz renk düz kalıyor; `Crop.defaultCropBox` 8 görüntü şekli × 5 standart × kenara taşan yüzlerde hep görüntü içinde ve doğru oranda; NaN/sonsuz kutular ölçümleri çökertmiyor; uçtan uca 7 çekim şekli × 3 standart geçerli JPEG ve KB aralığında.
+Bulunup düzeltilenler:
+- `Score.total`: framingDev (ve roll/yaw) NaN gelirse tüm puan 0'a düşüyordu → bilinmeyen ölçüm artık orta değer alır.
+- `JpegEncoder.encodeFit`: kalite tabanı 40'tı; gürültülü/büyük standartta üst KB sınırı aşılabiliyordu → taban 20.
+- `ImageOps.decode`: bellek yetmezse (≈5 MP çekim + eşzamanlı iş) hata vermek yerine bir kademe daha küçük örnekleyerek yeniden dener (en fazla 2 kez).
+Java testleri 83/83. Kotlin derlenmedi.
