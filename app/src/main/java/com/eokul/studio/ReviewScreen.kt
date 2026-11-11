@@ -162,13 +162,17 @@ fun ReviewScreen(studio: StudioViewModel) {
             val warnings = ArrayList<String>()
             var hardCount = 0
             var frameIssues = 0
+            val hardCodes = ArrayList<String>()
+            val softCodes = ArrayList<String>()
             fun hard(msg: String, frame: Boolean = false) {
                 warnings.add(msg)
+                hardCodes.add(Ops.warnCode(msg))
                 hardCount++
                 if (frame) frameIssues++
             }
             fun soft(msg: String, frame: Boolean = false) {
                 warnings.add(msg)
+                softCodes.add(Ops.warnCode(msg))
                 if (frame) frameIssues++
             }
             if (s.faces.isEmpty()) hard("⚠ Yüz bulunamadı — alanı elle ayarlayın veya yeniden çekin.", true)
@@ -216,6 +220,8 @@ fun ReviewScreen(studio: StudioViewModel) {
                 if (Math.abs(f0.yaw) > 15f) hard("⚠ Yüz kameraya dönük değil (${Math.abs(f0.yaw).toInt()}°) — karşıdan çekin.")
             }
             androidx.compose.runtime.LaunchedEffect(hardCount) { cap.warned = hardCount > 0 }
+            cap.hardCodes = hardCodes.joinToString(",")
+            cap.softCodes = softCodes.joinToString(",")
             val f1 = s.faces.firstOrNull()
             val score = if (q != null && f1 != null) {
                 // Kadraj sapması dereceli: sorun yoksa 0, her ek sorun biraz daha düşürür (önceden herhangi bir uyarı −15 puandı)
@@ -270,6 +276,7 @@ fun ReviewScreen(studio: StudioViewModel) {
             LaunchedEffect(autoPending) {
                 if (autoPending) {
                     delay(700)
+                    cap.auto = true
                     studio.saveCapture()
                 }
             }

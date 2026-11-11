@@ -57,6 +57,11 @@ class CaptureState(
     var score by mutableStateOf(-1)
     /** Kayıtlı kırpmayı düzenleme: inceleme ekranı atlanır, düzenleyici doğrudan açılır; Uygula = kaydet. */
     var directEdit by mutableStateOf(false)
+    /** Günlük için: uyarı kodları (virgüllü), otomatik kabul mi, inceleme ekranının açıldığı an. */
+    var hardCodes: String = ""
+    var softCodes: String = ""
+    var auto: Boolean = false
+    var shownAt: Long = 0L
 }
 
 class StudioViewModel(app: Application) : AndroidViewModel(app) {
@@ -547,6 +552,8 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         capture?.temp?.delete()
         val pf = prefetch
         prefetch = null
+        val tReady = android.os.SystemClock.elapsedRealtime()
+        val pfState = if (pf == null || temp == null) "none" else if (pf.first == temp && !pf.second.isCancelled) "hit" else "miss"
         val cap = CaptureState(classId, no, source, temp, fromSaved)
         cap.directEdit = directEdit
         capture = cap
@@ -592,10 +599,16 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 s.loading = false
                 cap.session = s
                 cap.loading = false
+                cap.shownAt = android.os.SystemClock.elapsedRealtime()
+                Ops.log(
+                    "review_ready", "id", Ops.id(no), "ms", cap.shownAt - tReady, "prefetch", pfState,
+                    "w", dims.first, "h", dims.second, "faces", faces.size, "saved", fromSaved
+                )
                 if (directEdit && screen == Screen.Review) openCaptureEditor()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
+                Ops.error("review", e)
                 cap.error = (e.message ?: e.javaClass.simpleName) +
                     if (e is OutOfMemoryError) " · " + Diag.memInfo() else ""
                 cap.loading = false
@@ -604,6 +617,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun discardCapture() {
+        capture?.let { Ops.log("discard", "id", Ops.id(it.no)) }
         captureJob?.cancel()
         capture?.temp?.delete()
         capture = null
@@ -851,6 +865,36 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             Triple(n, photos.size, captured)
         }
 
+    /** Tanılama raporunu kayıt klasörüne Rapor-tarih.txt olarak yazar (öğrenci adı içermez). */
+    fun exportReport() {
+        val rootStr = settings.rootUri
+        if (rootStr == null) {
+            say("Önce kayıt klasörünü seçin")
+            return
+        }
+        val root = Uri.parse(rootStr)
+        viewModelScope.launch {
+            try {
+                val name = "Rapor-" + java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.ROOT).format(java.util.Date()) + ".txt"
+                withContext(Dispatchers.IO) {
+                    val text = Ops.reportText()
+                    Output.writeStream(ctx, root, emptyList(), name, "text/plain") { it.write(text.toByteArray(Charsets.UTF_8)) }
+                }
+                say("✓ Rapor kayıt klasörüne yazıldı: $name\nBu dosyayı geliştiriciye iletin; öğrenci adı içermez.")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Ops.error("report", e)
+                say("Rapor yazılamadı: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    fun clearOpsLog() {
+        Ops.clear()
+        say("İşlem kaydı temizlendi")
+    }
+
     /** Sınıf listesi + küçük fotoğraflar: kayıt klasörüne Yedek-tarih.zip (akış tabanlı, doğrulamalı). */
     fun backup() {
         val rootStr = settings.rootUri
@@ -862,13 +906,16 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val snap = classes.toList()
         viewModelScope.launch {
             try {
+                val tb = android.os.SystemClock.elapsedRealtime()
                 val name = writeBackup(root, snap, "Yedek-")
+                Ops.log("op", "name", "backup", "ok", true, "ms", android.os.SystemClock.elapsedRealtime() - tb, "n", name.second)
                 SettingsState.update(settings.copy(lastBackupMs = System.currentTimeMillis()))
                 say("✓ Yedek alındı ve doğrulandı: ${name.first}\n${name.second} fotoğraf · ${name.third} çekilmiş öğrenci.\n" +
                     "Dosya kayıt klasöründe durur; uygulamayı silseniz de kalır. Tam çözünürlüklü orijinaller yedeğe girmez, kayıt klasöründe kalır.")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
+                Ops.log("op", "name", "backup", "ok", false, "err", (e.message ?: e.javaClass.simpleName).take(200))
                 say("Yedek alınamadı: ${e.message ?: e.javaClass.simpleName}")
             }
         }
@@ -1090,6 +1137,11 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val warned = cap.warned
         val newScore = cap.score
         cap.saving = true
+        val oid = Ops.id(cap.no)
+        Ops.log(
+            "save_start", "id", oid, "score", newScore, "hard", cap.hardCodes, "soft", cap.softCodes, "auto", cap.auto,
+            "reviewMs", if (cap.shownAt > 0) android.os.SystemClock.elapsedRealtime() - cap.shownAt else -1, "retake", warned
+        )
 
         // Hız: öğrenci hemen "çekildi" sayılıp sıradakine geçilir; dosyalar arka planda (sırayla) yazılır.
         // Yazma başarısız olursa öğrenci eski durumuna döner ve kullanıcı açıkça uyarılır.
@@ -1106,8 +1158,10 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             saveMutex.withLock {
+                val tSave = android.os.SystemClock.elapsedRealtime()
                 try {
                     val saved = withContext(Dispatchers.IO) { writeAll(root, cls, st, cap, px, iw, ih, box, set) }
+                    Ops.log("save", "id", oid, "ok", true, "ms", android.os.SystemClock.elapsedRealtime() - tSave, "warn", saved.warnings.size)
                     updateStudent(cap.classId, cap.no) {
                         // updatedAt yenilenir: küçük resim dosya yazıldıktan sonra yeniden okunur
                         it.copy(updatedAt = System.currentTimeMillis(), origUri = saved.origUri, savedStem = saved.stem)
@@ -1117,6 +1171,10 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {
+                    Ops.log(
+                        "save", "id", oid, "ok", false, "ms", android.os.SystemClock.elapsedRealtime() - tSave,
+                        "err", (e.message ?: e.javaClass.simpleName).take(200)
+                    )
                     updateStudent(cap.classId, cap.no) { before }
                     say("⚠ ${st.name} (${st.no}) kaydedilemedi: ${e.message ?: e.javaClass.simpleName}. Bu öğrenciyi yeniden çekin.")
                 }

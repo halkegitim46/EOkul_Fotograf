@@ -327,6 +327,22 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         }
 
         }
+        SettingsCard("Tanılama ve rapor", "Çekim ve kayıt işlemlerinin kaydı") {
+            Text(
+                "Uygulama çekim, puanlama, kayıt ve hataları öğrenci adı olmadan cihazda tutar. Bir sorun olduğunda raporu alıp geliştiriciye iletin; hız ve hatalar buradan analiz edilir.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.size(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppButton("Raporu kaydet", onClick = { studio.exportReport() }, style = BtnStyle.Primary, modifier = Modifier.weight(1f))
+                AppButton("Kaydı temizle", onClick = { studio.clearOpsLog() }, style = BtnStyle.Secondary, modifier = Modifier.weight(1f))
+            }
+            Text(
+                "Rapor kayıt klasörüne Rapor-tarih.txt olarak yazılır.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
         SettingsCard("Güvenlik ve yedek", "PIN kilidi ve yedekleme") {
         OutlinedButton(onClick = { pinOpen = true }) {
             Text(if (vm.settings.pinHash != null) "🔒 PIN: açık (değiştir / kaldır)" else "🔓 PIN kilidi belirle")

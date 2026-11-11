@@ -341,6 +341,9 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         val flip = if (lensBack) studio.settings.flipCapture else studio.settings.flipFront
         val shots = ArrayList<BurstPick.Shot>()
         val scores = ArrayList<Int>()   // kare puanları (shots ile aynı sıra)
+        val oid = Ops.id(no)
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        Ops.log("shutter", "id", oid, "lens", if (lensBack) "back" else "front", "burst", total, "hq", studio.settings.hqCapture)
         previewView.display?.let { imageCapture.targetRotation = it.rotation }
         try { sound.play(MediaActionSound.SHUTTER_CLICK) } catch (_: Throwable) { }
         previewView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -374,7 +377,11 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
             val list = ArrayList(shots)
             val sc = ArrayList(scores)
             Thread {
-                val best = try { BurstPick.bestOf(list, sc) } catch (e: Throwable) { list[0].file }
+                val best = try { BurstPick.bestOf(list, sc) } catch (e: Throwable) { Ops.error("bestOf", e); list[0].file }
+                Ops.log(
+                    "capture", "id", oid, "frames", list.size, "chosen", list.indexOfFirst { it.file == best }.coerceAtLeast(0),
+                    "early", (list.size < total), "ms", android.os.SystemClock.elapsedRealtime() - t0, "flipped", flip
+                )
                 ContextCompat.getMainExecutor(ctx).execute {
                     capturing = false
                     if (studio.screen is Screen.Camera) {
@@ -407,7 +414,14 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                                 return@Thread
                             }
                             // Kareyi puanla: yeterince iyiyse kalan kareler çekilmez (hız); değilse sıradaki kare çekilir.
-                            val sc = try { BurstPick.score(shot) } catch (e: Throwable) { -1 }
+                            val ts = android.os.SystemClock.elapsedRealtime()
+                            val d = try { BurstPick.scoreD(shot) } catch (e: Throwable) { Ops.error("score", e); BurstPick.Detail(-1) }
+                            val sc = d.score
+                            Ops.log(
+                                "frame", "id", oid, "i", i, "ms", ts - t0, "bytes", file.length(), "score", sc, "face", d.face,
+                                "eye", d.eye, "smile", d.smile, "light", d.light, "blur", d.blur, "bright", d.bright,
+                                "contrast", d.contrast, "scoreMs", android.os.SystemClock.elapsedRealtime() - ts
+                            )
                             ContextCompat.getMainExecutor(ctx).execute {
                                 scores.add(sc)
                                 if (sc >= BurstPick.GOOD_ENOUGH || i + 1 >= total) finish() else one(i + 1)
@@ -417,6 +431,7 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
 
                     override fun onError(exception: ImageCaptureException) {
                         file.delete()
+                        Ops.log("error", "where", "takePicture", "msg", (exception.message ?: "hata").take(200), "code", exception.imageCaptureError)
                         if (shots.isEmpty()) {
                             capturing = false
                             camError = "Çekim başarısız: ${exception.message ?: "hata"}"

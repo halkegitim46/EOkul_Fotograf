@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
         // Kenardan kenara görünüm (Android 15+ / targetSdk 35 için zorunlu); boşluklar AppRoot'ta ayarlanır.
         enableEdgeToEdge()
         Diag.install(this)
+        Ops.init(this)
+        Ops.appStart(studio.settings)
         Diag.report(this)?.let { r ->
             studio.addStartupNote("Önceki çalışmada sorun kaydedildi (bu metni geliştiriciye iletin):\n" + r)
         }
