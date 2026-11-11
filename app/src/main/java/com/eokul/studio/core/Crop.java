@@ -36,6 +36,17 @@ public final class Crop {
         return 0.5 * ((face[3] - face[1]) + 1.25 * (face[2] - face[0]));
     }
 
+    /**
+     * Bir görüntü boyutunda ([fromW]x[fromH]) tanımlı kutuyu başka bir boyuta ([toW]x[toH]) ölçekler.
+     * Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsü koordinatındadır; "Kırpmayı düzenle" ise küçültülmüş
+     * orijinali açar. Boyutlar aynıysa veya eski kayıtta boyut bilinmiyorsa (0) kutu olduğu gibi döner.
+     */
+    public static double[] scaleBox(double[] b, int fromW, int fromH, int toW, int toH) {
+        if (fromW <= 0 || fromH <= 0 || toW <= 0 || toH <= 0 || (fromW == toW && fromH == toH)) return b.clone();
+        double sx = toW / (double) fromW, sy = toH / (double) fromH;
+        return new double[]{b[0] * sx, b[1] * sy, b[2] * sx, b[3] * sy};
+    }
+
     /** Kutuyu en-boy oranını koruyarak görüntü içine sığdırır (merkezi mümkün olduğunca korur). */
     public static double[] fitInside(double[] b, int iw, int ih, double ratio) {
         double w = Math.max(1.0, Math.min(Math.min(b[2] - b[0], iw), ih * ratio));

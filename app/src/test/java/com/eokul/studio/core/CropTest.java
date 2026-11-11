@@ -54,4 +54,19 @@ public class CropTest {
         assertTrue("Çene kadrajda", b[3] >= face[3]);
         assertTrue("Yüz yatayda kadrajda", b[0] <= face[0] && b[2] >= face[2]);
     }
+
+    @Test public void scaleBoxMapsToResizedOriginal() {
+        // 2592x1944 çalışma görüntüsünde kaydedilmiş kutu, 1600x1200'e küçültülmüş orijinalde aynı bölgeyi göstermeli
+        double[] b = {648, 486, 1944, 1944 * 0.75 + 0};
+        double[] r = Crop.scaleBox(b, 2592, 1944, 1600, 1200);
+        double k = 1600 / 2592.0;
+        org.junit.Assert.assertArrayEquals(new double[]{648 * k, 486 * k, 1944 * k, b[3] * (1200 / 1944.0)}, r, 1e-9);
+    }
+
+    @Test public void scaleBoxIsNoOpWhenUnknownOrSame() {
+        double[] b = {10, 20, 110, 150};
+        org.junit.Assert.assertArrayEquals(b, Crop.scaleBox(b, 0, 0, 1600, 1200), 0);
+        org.junit.Assert.assertArrayEquals(b, Crop.scaleBox(b, 1600, 1200, 1600, 1200), 0);
+        org.junit.Assert.assertNotSame(b, Crop.scaleBox(b, 1600, 1200, 1600, 1200));
+    }
 }

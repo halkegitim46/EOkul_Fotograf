@@ -345,39 +345,43 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
         try { sound.play(MediaActionSound.SHUTTER_CLICK) } catch (_: Throwable) { }
         previewView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
 
+        /** EXIF yönünü sağ-sol çevirir (kayıpsız); kare kaydedilir kaydedilmez, çözümlemeden önce uygulanır. */
+        fun applyFlip(best: File) {
+
+            // EXIF yönünü sağ-sol çevir (kayıpsız). Yön değeri kendi tablomuzla hesaplanır ve yazıldıktan sonra
+            // geri okunarak doğrulanır; kütüphanenin flipHorizontally() çağrısına güvenilmez.
+            try {
+                val ei = androidx.exifinterface.media.ExifInterface(best.absolutePath)
+                val cur = ei.getAttributeInt(
+                    androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+                )
+                val next = when (cur) {
+                    1 -> 2; 2 -> 1; 3 -> 4; 4 -> 3; 5 -> 8; 8 -> 5; 6 -> 7; 7 -> 6
+                    else -> 2
+                }
+                ei.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, next.toString())
+                ei.saveAttributes()
+                val back = androidx.exifinterface.media.ExifInterface(best.absolutePath)
+                    .getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1)
+                if (back != next) android.util.Log.w("EOkul", "Sağ-sol çevirme doğrulanamadı: beklenen $next, okunan $back")
+            } catch (e: Throwable) {
+                android.util.Log.w("EOkul", "Sağ-sol çevirme başarısız", e)
+            }
+        }
+
         fun finish() {
             val list = ArrayList(shots)
             val sc = ArrayList(scores)
             Thread {
                 val best = try { BurstPick.bestOf(list, sc) } catch (e: Throwable) { list[0].file }
-                if (flip) {
-                    // EXIF yönünü sağ-sol çevir (kayıpsız). Yön değeri kendi tablomuzla hesaplanır ve yazıldıktan sonra
-                    // geri okunarak doğrulanır; kütüphanenin flipHorizontally() çağrısına güvenilmez.
-                    try {
-                        val ei = androidx.exifinterface.media.ExifInterface(best.absolutePath)
-                        val cur = ei.getAttributeInt(
-                            androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
-                            androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
-                        )
-                        val next = when (cur) {
-                            1 -> 2; 2 -> 1; 3 -> 4; 4 -> 3; 5 -> 8; 8 -> 5; 6 -> 7; 7 -> 6
-                            else -> 2
-                        }
-                        ei.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, next.toString())
-                        ei.saveAttributes()
-                        val back = androidx.exifinterface.media.ExifInterface(best.absolutePath)
-                            .getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1)
-                        if (back != next) android.util.Log.w("EOkul", "Sağ-sol çevirme doğrulanamadı: beklenen $next, okunan $back")
-                    } catch (e: Throwable) {
-                        android.util.Log.w("EOkul", "Sağ-sol çevirme başarısız", e)
-                    }
-                }
                 ContextCompat.getMainExecutor(ctx).execute {
                     capturing = false
                     if (studio.screen is Screen.Camera) {
                         studio.onPhotoReady(classId, no, Uri.fromFile(best), best)
                     } else {
                         best.delete()   // kullanıcı çekim bitmeden ekrandan ayrıldı
+                        studio.dropPrefetch()
                     }
                 }
             }.start()
@@ -393,12 +397,16 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                         val shot = BurstPick.Shot(file, eye)
                         shots.add(shot)
-                        if (total == 1) {
-                            finish()
-                            return
-                        }
-                        // Kareyi hemen puanla: yeterince iyiyse kalan kareler çekilmez (hız); değilse sıradaki kare çekilir.
                         Thread {
+                            if (flip) applyFlip(file)
+                            // Hız: tam çözünürlüklü çözme + yüz tespiti hemen arka planda başlar (puanlamayla paralel);
+                            // bu kare seçilirse inceleme ekranı hazır sonucu alır, seçilmezse atılır.
+                            ContextCompat.getMainExecutor(ctx).execute { studio.prefetchPhoto(file) }
+                            if (total == 1) {
+                                ContextCompat.getMainExecutor(ctx).execute { finish() }
+                                return@Thread
+                            }
+                            // Kareyi puanla: yeterince iyiyse kalan kareler çekilmez (hız); değilse sıradaki kare çekilir.
                             val sc = try { BurstPick.score(shot) } catch (e: Throwable) { -1 }
                             ContextCompat.getMainExecutor(ctx).execute {
                                 scores.add(sc)

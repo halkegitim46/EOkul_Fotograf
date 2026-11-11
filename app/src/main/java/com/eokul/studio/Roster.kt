@@ -16,6 +16,9 @@ data class Student(
     val updatedAt: Long = 0L,
     /** Son kırpma kutusu (çalışma görüntüsü koordinatlarında); orijinalden yeniden kırpmak için. */
     val box: Box? = null,
+    /** [box]'ın tanımlandığı çalışma görüntüsünün boyutu; 0 = bilinmiyor (eski kayıt). Orijinal küçültülmüşse kutu ölçeklenir. */
+    val boxW: Int = 0,
+    val boxH: Int = 0,
     /** Orijinal fotoğrafın SAF URI'si (Orijinaller klasöründe). */
     val origUri: String? = null,
     /** Son kayıtta kullanılan dosya adı (uzantısız), örn. "12345-Ayşe Yılmaz". */
@@ -177,6 +180,8 @@ class RosterStore(private val file: File) {
                             } else {
                                 null
                             },
+                            boxW = s.optInt("boxW", 0),
+                            boxH = s.optInt("boxH", 0),
                             origUri = if (s.has("origUri") && !s.isNull("origUri")) s.getString("origUri") else null,
                             savedStem = if (s.has("savedStem") && !s.isNull("savedStem")) s.getString("savedStem") else null,
                             faceCount = s.optInt("faceCount"),
@@ -208,6 +213,7 @@ class RosterStore(private val file: File) {
                         .put("retake", s.retake)
                         .put("score", s.score)
                     s.box?.let { o.put("box", JSONArray(listOf(it.x1, it.y1, it.x2, it.y2))) }
+                    if (s.boxW > 0 && s.boxH > 0) o.put("boxW", s.boxW).put("boxH", s.boxH)
                     s.origUri?.let { o.put("origUri", it) }
                     s.savedStem?.let { o.put("savedStem", it) }
                     sa.put(o)

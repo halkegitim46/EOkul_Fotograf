@@ -53,10 +53,10 @@ object BurstPick {
             val deg = when (ExifInterface(shot.file.absolutePath).getAttributeInt(
                 ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
             )) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> 90
-                ExifInterface.ORIENTATION_ROTATE_180 -> 180
-                ExifInterface.ORIENTATION_ROTATE_270 -> 270
-                else -> 0
+                ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_TRANSPOSE -> 90
+                ExifInterface.ORIENTATION_ROTATE_180, ExifInterface.ORIENTATION_FLIP_VERTICAL -> 180
+                ExifInterface.ORIENTATION_ROTATE_270, ExifInterface.ORIENTATION_TRANSVERSE -> 270
+                else -> 0   // NORMAL ve FLIP_HORIZONTAL: dönme yok (ayna puanları değiştirmez)
             }
             rotated = if (deg == 0) bmp else Bitmap.createBitmap(
                 bmp, 0, 0, bmp.width, bmp.height, Matrix().apply { postRotate(deg.toFloat()) }, true

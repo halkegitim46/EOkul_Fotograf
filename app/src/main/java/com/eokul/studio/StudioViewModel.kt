@@ -11,10 +11,13 @@ import androidx.compose.runtime.setValue
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eokul.studio.core.Crop
 import com.eokul.studio.core.RosterParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -505,16 +508,45 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             if (found.toString() != st.origUri) updateStudent(classId, no) { it.copy(origUri = found.toString()) }
-            onPhotoReady(classId, no, found, null, true, st.box, directEdit = true)
+            onPhotoReady(classId, no, found, null, true, st.box, directEdit = true, savedBoxW = st.boxW, savedBoxH = st.boxH)
         }
+    }
+
+    /** Tam çözünürlüklü çalışma görüntüsü + yüzler (inceleme için yalnızca piksel dizisi tutulur). */
+    private class Decoded(val w: Int, val h: Int, val px: IntArray, val faces: List<FaceInfo>)
+
+    private var prefetch: Pair<File, kotlinx.coroutines.Deferred<Decoded>>? = null
+
+    private suspend fun decodeFull(uri: Uri): Decoded {
+        val bmp = ImageOps.decode(ctx, uri)
+        val px = ImageOps.pixels(bmp)
+        val faces = ImageOps.detectFaces(bmp, px)
+        val w = bmp.width
+        val h = bmp.height
+        bmp.recycle()   // inceleme için yalnızca piksel dizisi gerekir (≈17 MB tasarruf); düzenleyici açılınca yeniden üretilir
+        return Decoded(w, h, px, faces)
+    }
+
+    /** Çekilen kareyi arka planda önceden çözer; en fazla bir iş bekler (öncekiler iptal edilir). */
+    fun prefetchPhoto(file: File) {
+        dropPrefetch()
+        prefetch = file to viewModelScope.async(Dispatchers.Default) { decodeFull(Uri.fromFile(file)) }
+    }
+
+    fun dropPrefetch() {
+        prefetch?.second?.cancel()
+        prefetch = null
     }
 
     fun onPhotoReady(
         classId: String, no: String, source: Uri, temp: File?,
-        fromSaved: Boolean = false, savedBox: Box? = null, directEdit: Boolean = false
+        fromSaved: Boolean = false, savedBox: Box? = null, directEdit: Boolean = false,
+        savedBoxW: Int = 0, savedBoxH: Int = 0
     ) {
         captureJob?.cancel()
         capture?.temp?.delete()
+        val pf = prefetch
+        prefetch = null
         val cap = CaptureState(classId, no, source, temp, fromSaved)
         cap.directEdit = directEdit
         capture = cap
@@ -523,12 +555,21 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         captureJob = viewModelScope.launch {
             try {
                 val r = withContext(Dispatchers.Default) {
-                    val bmp = ImageOps.decode(ctx, source)
-                    val px = ImageOps.pixels(bmp)
-                    val faces = ImageOps.detectFaces(bmp, px)
-                    val dims = Pair(bmp.width, bmp.height)
-                    bmp.recycle()   // inceleme için yalnızca piksel dizisi gerekir (≈17 MB tasarruf); düzenleyici açılınca yeniden üretilir
-                    Triple(dims, px, faces)
+                    // Kamera, kare kaydedilir kaydedilmez çözmeyi önden başlatmış olabilir (prefetchPhoto): hazırsa kullan.
+                    val dec: Decoded = if (pf != null && temp != null && pf.first == temp && !pf.second.isCancelled) {
+                        try {
+                            pf.second.await()
+                        } catch (e: CancellationException) {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()   // kendi iptalimizse çık
+                            decodeFull(source)
+                        } catch (e: Throwable) {
+                            decodeFull(source)
+                        }
+                    } else {
+                        pf?.second?.cancel()
+                        decodeFull(source)
+                    }
+                    Triple(Pair(dec.w, dec.h), dec.px, dec.faces)
                 }
                 val dims = r.first
                 val px = r.second
@@ -538,7 +579,9 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 s.iw = dims.first
                 s.ih = dims.second
                 val box = if (savedBox != null) {
-                    savedBox.fitInside(dims.first, dims.second)
+                    // Kayıtlı kutu çekim anındaki görüntü boyutundadır; açılan orijinal küçültülmüş olabilir → ölçekle
+                    Box.of(Crop.scaleBox(savedBox.toArray(), savedBoxW, savedBoxH, dims.first, dims.second))
+                        .fitInside(dims.first, dims.second)
                 } else {
                     ImageOps.defaultBox(dims.first, dims.second, faces.firstOrNull(), set)
                 }
@@ -1053,7 +1096,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val before = st
         updateStudent(cap.classId, cap.no) {
             it.copy(
-                captured = true, updatedAt = System.currentTimeMillis(), box = box, faceCount = faceCount,
+                captured = true, updatedAt = System.currentTimeMillis(), box = box, boxW = iw, boxH = ih, faceCount = faceCount,
                 retake = warned,
                 score = if (newScore >= 0) newScore else it.score
             )
