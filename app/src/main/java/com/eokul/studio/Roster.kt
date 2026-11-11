@@ -197,60 +197,130 @@ class RosterStore(private val file: File) {
     }
 
 
-    /** Kaydeder; başarılıysa null, değilse hata açıklaması döner (hata sessizce yutulmaz). */
-    fun save(classes: List<SchoolClass>): String? {
+    /** Öğrenci listesini kararlı JSON metnine dönüştürür. Yedekleme de aynı serileştiriciyi kullanır. */
+    fun encode(classes: List<SchoolClass>): String {
+        val arr = JSONArray()
+        for (c in classes) {
+            val sa = JSONArray()
+            for (s in c.students) {
+                val o = JSONObject()
+                    .put("no", s.no)
+                    .put("name", s.name)
+                    .put("captured", s.captured)
+                    .put("updatedAt", s.updatedAt)
+                    .put("faceCount", s.faceCount)
+                    .put("retake", s.retake)
+                    .put("score", s.score)
+                s.box?.let { o.put("box", JSONArray(listOf(it.x1, it.y1, it.x2, it.y2))) }
+                if (s.boxW > 0 && s.boxH > 0) o.put("boxW", s.boxW).put("boxH", s.boxH)
+                s.origUri?.let { o.put("origUri", it) }
+                s.savedStem?.let { o.put("savedStem", it) }
+                sa.put(o)
+            }
+            arr.put(JSONObject().put("id", c.id).put("name", c.name).put("students", sa))
+        }
+        return JSONObject().put("version", 1).put("classes", arr).toString()
+    }
+
+    /** Yeni roster dosyasını mevcut dosyaya dokunmadan hazırlar ve diske senkronize eder. */
+    fun prepare(classes: List<SchoolClass>): File {
+        val text = encode(classes)
+        parseStrict(text)
+        file.parentFile?.mkdirs()
+        val prepared = File(file.parentFile, file.name + ".prepared")
+        writeSynced(prepared, text.toByteArray(Charsets.UTF_8))
+        parseStrict(prepared.readText(Charsets.UTF_8))
+        return prepared
+    }
+
+    /** Hazırlanmış roster dosyasını eski dosyayı koruyarak devreye alır. */
+    fun commitPrepared(prepared: File): String? {
+        var rollback: File? = null
+        var hadOriginal = file.exists()
         return try {
-            val arr = JSONArray()
-            for (c in classes) {
-                val sa = JSONArray()
-                for (s in c.students) {
-                    val o = JSONObject()
-                        .put("no", s.no)
-                        .put("name", s.name)
-                        .put("captured", s.captured)
-                        .put("updatedAt", s.updatedAt)
-                        .put("faceCount", s.faceCount)
-                        .put("retake", s.retake)
-                        .put("score", s.score)
-                    s.box?.let { o.put("box", JSONArray(listOf(it.x1, it.y1, it.x2, it.y2))) }
-                    if (s.boxW > 0 && s.boxH > 0) o.put("boxW", s.boxW).put("boxH", s.boxH)
-                    s.origUri?.let { o.put("origUri", it) }
-                    s.savedStem?.let { o.put("savedStem", it) }
-                    sa.put(o)
-                }
-                arr.put(JSONObject().put("id", c.id).put("name", c.name).put("students", sa))
-            }
-            val root = JSONObject().put("version", 1).put("classes", arr)
+            if (!prepared.exists()) throw java.io.IOException("Hazırlanmış liste dosyası bulunamadı")
+            parseStrict(prepared.readText(Charsets.UTF_8))
             file.parentFile?.mkdirs()
-            val text = root.toString()
-            parseStrict(text)   // yazmadan önce kendi çıktımızı doğrula
-            val tmp = File(file.parentFile, file.name + ".tmp")
-            tmp.writeText(text)
-            // Mevcut sağlam dosya yedeğe alınır; yeni dosya yerine geçmeden önce eski veri korunur.
-            if (file.exists()) {
+
+            // Önceki sağlam dosyanın .bak kopyası ayrı geçici dosyaya yazılır.
+            if (hadOriginal) {
                 try {
-                    parseStrict(file.readText())   // bozuk dosya sağlam yedeğin üzerine yazılmaz
-                    file.copyTo(bak, overwrite = true)
-                } catch (e: Exception) {
-                    // yedek alınamadı; yine de devam
+                    parseStrict(file.readText(Charsets.UTF_8))
+                    val bakTmp = File(file.parentFile, bak.name + ".tmp")
+                    copySynced(file, bakTmp)
+                    replaceFile(bakTmp, bak)
+                } catch (_: Exception) {
+                    // Bozuk ana dosya sağlam .bak dosyasının üzerine yazılmaz.
                 }
+                val rollbackTarget = File(file.parentFile, file.name + ".rollback")
+                val rollbackTmp = File(file.parentFile, file.name + ".rollback.tmp")
+                rollbackTarget.delete()
+                rollbackTmp.delete()
+                copySynced(file, rollbackTmp)
+                replaceFile(rollbackTmp, rollbackTarget)
+                rollback = rollbackTarget
             }
-            try {
-                java.nio.file.Files.move(
-                    tmp.toPath(), file.toPath(),
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING
-                )
-            } catch (e: Exception) {
-                java.nio.file.Files.move(tmp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+
+            val expected = parseStrict(prepared.readText(Charsets.UTF_8))
+            replaceFile(prepared, file)
+            val check = parseStrict(file.readText(Charsets.UTF_8))
+            if (check.size != expected.size || check.sumOf { it.students.size } != expected.sumOf { it.students.size } || encode(check) != encode(expected)) {
+                throw java.io.IOException("Kayıt doğrulaması başarısız")
             }
-            // Yazılan dosyayı geri okuyup sınıf ve öğrenci sayılarını doğrula.
-            val back = parseStrict(file.readText())
-            if (back.size != classes.size || back.sumOf { it.students.size } != classes.sumOf { it.students.size }) {
-                throw java.io.IOException("Kayıt doğrulaması tutmadı")
-            }
+            rollback?.delete()
             null
         } catch (e: Exception) {
+            try {
+                if (hadOriginal && rollback?.exists() == true) replaceFile(rollback!!, file)
+                else if (!hadOriginal) file.delete()
+            } catch (_: Exception) {
+                return "${e.message ?: e.javaClass.simpleName}; eski liste otomatik geri getirilemedi, .rollback dosyası korunmuş olabilir"
+            }
             e.message ?: e.javaClass.simpleName
+        } finally {
+            if (prepared.exists()) prepared.delete()
         }
     }
+
+    private fun writeSynced(target: File, bytes: ByteArray) {
+        target.parentFile?.mkdirs()
+        java.io.FileOutputStream(target).use { out ->
+            out.write(bytes)
+            out.flush()
+            out.fd.sync()
+        }
+    }
+
+    private fun copySynced(source: File, target: File) {
+        target.parentFile?.mkdirs()
+        java.io.FileInputStream(source).use { input ->
+            java.io.FileOutputStream(target).use { output ->
+                input.copyTo(output)
+                output.flush()
+                output.fd.sync()
+            }
+        }
+    }
+
+    private fun replaceFile(source: File, target: File) {
+        try {
+            java.nio.file.Files.move(
+                source.toPath(), target.toPath(),
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: Exception) {
+            // Aynı dosya sistemi içinde normal taşıma; çağıran rollback kopyasını tutar.
+            java.nio.file.Files.move(source.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    /** Kaydeder; başarılıysa null, değilse hata açıklaması döner. */
+    fun save(classes: List<SchoolClass>): String? {
+        val prepared = try { prepare(classes) } catch (e: Exception) {
+            return e.message ?: e.javaClass.simpleName
+        }
+        return commitPrepared(prepared)
+    }
+
 }

@@ -4,6 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -60,8 +63,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         vm.persistNow()
-        studio.persistNow()
         studio.onBackgrounded()
+        // Öğrenci listesi için son snapshot yazımı bitmeden Activity yaşam döngüsü devam eder.
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                studio.persistAndWait()
+            } catch (e: Exception) {
+                Ops.error("activity_stop_persist", e)
+            }
+        }
         super.onStop()
     }
 

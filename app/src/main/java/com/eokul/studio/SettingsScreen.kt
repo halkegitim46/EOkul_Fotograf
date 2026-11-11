@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolean, onClose: () -> Unit) {
-    BackHandler { onClose() }
+    BackHandler { if (!studio.isRestoring) onClose() }
     var confirmRestore by remember { mutableStateOf<Uri?>(null) }
     var restoreInfo by remember { mutableStateOf<StudioViewModel.BackupInfo?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -138,6 +138,15 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             Text("Ayarlar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.size(8.dp))
+        if (studio.isRestoring) {
+            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text(
+                "Yedek güvenli biçimde geri yükleniyor. İşlem tamamlanana kadar uygulamayı kapatmayın.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
 
         // ---------------- Kayıt (sınıf akışı)
         SettingsCard("Genel", "Kayıt klasörü ve çekim akışı") {
@@ -455,10 +464,13 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    confirmRestore = null
-                    studio.restore(rs)
-                }) { Text("Geri yükle") }
+                TextButton(
+                    enabled = !studio.isRestoring,
+                    onClick = {
+                        confirmRestore = null
+                        studio.restore(rs)
+                    }
+                ) { Text(if (studio.isRestoring) "Yükleniyor…" else "Geri yükle") }
             },
             dismissButton = { TextButton(onClick = { confirmRestore = null }) { Text("Vazgeç") } }
         )

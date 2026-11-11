@@ -66,5 +66,6 @@ otomatik çalışır; başarısız olursa APK üretilmez ve `test-raporu` yükle
 - Liste dosyası (`roster.json`) atomik yazılır, her kayıtta doğrulanır, son sağlam kopya `.bak` olarak tutulur; bozuksa yedekten
   okunur ve bozuk dosya silinmeden saklanır.
 - Kayıt klasörüne yazarken önce geçici dosya, sonra yer değiştirme yapılır; eski dosya yeni içerik doğrulanmadan silinmez.
-- Yedek / ZIP akış olarak yazılır; geri yükleme geçici klasöre açar, sınırları ve dosya yollarını doğrular, başarısızlıkta eski veriyi korur.
+- Yedek / ZIP akış olarak yazılır; geri okunup manifest ve roster snapshot'ı doğrulanır. Geri yükleme geçici klasöre açılır; `restore.transaction` günlüğüyle roster ve fotoğraf klasörü birlikte devreye alınır. Uygulama işlem ortasında kapanırsa açılışta eski veri geri yüklenir.
+- Öğrenci listesi kayıtları sürümlüdür; eski bir arka plan kaydı daha yeni listeyi ezemez. Fotoğraf dosyası doğrulanmadan öğrenci `çekildi` olarak kalıcı kaydedilmez.
 - Ana ekran menüsünde "Veri denetimi" kayıtlarla dosyalar arasındaki tutarsızlıkları raporlar.
