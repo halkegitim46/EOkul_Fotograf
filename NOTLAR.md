@@ -100,3 +100,10 @@ Yapılanlar:
 - Arka planda kayıt: öğrenci hemen "çekildi" olur ve sıradakine geçilir; dosyalar sırayla (Mutex) yazılır; hata olursa öğrenci eski haline döner ve uyarı çıkar.
 - Orijinal arşiv kopyası: Java Lanczos yerine yerel ölçekleme + JPEG (HQ çekimde her kayıtta çalışıyordu).
 - Denenmedi: Zero-Shutter-Lag (CameraX deneysel API; destek cihaza bağlı, flaş kapalı olmalı), kamerayı inceleme sırasında açık tutma.
+
+## "Hepsi tekrar çekilmeli" hatası (kalite puanı / uyarılar)
+Nedenler: (1) arka ışık kuralı yalnızca "arka plan yüzden parlak" diyordu; kamera yüze pozlama yaptığı için düz beyaz duvar hep alarm veriyordu (canlıda çekimi 4 sn bekletiyor, incelemede otomatik kaydı engelliyordu). (2) İncelemede herhangi bir uyarı kadraj puanını 25→10 (−15) yapıyor ve fotoğrafı "tekrar çekilmeli" işaretliyordu.
+Düzeltme: arka ışık = arka plan parlak VE yüz ortalaması <90 (beyaz duvar + iyi pozlanmış yüz artık sorun değil); uyarılar AĞIR (yeniden çekim işareti + otomatik kaydı durdurur) ve BİLGİ (ışık dengesi, hafif kadraj; işaret koymaz, otomatik kaydı engellemez) olarak ayrıldı; kadraj puanı dereceli (0/0.7/1.3/2.0), ışık için Burst cezası; parlaklık ideal aralığı 95–165; canlıda ışık engeli 2 sn. Sınıf ekranı › Tekrar filtresinde "Tüm işaretleri temizle" eklendi (eski sürümün hatalı işaretleri için).
+
+## Kırpmayı düzenle: kutu ölçekleme hatası
+Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel koordinatındadır (HQ çekimde ~2592 px). "Kırpmayı düzenle" ise Orijinaller klasöründeki, gerekirse küçültülmüş (≤1600 px) kopyayı açıyordu ve kutuyu ölçeklemiyordu → yanlış bölge. Düzeltme: Student'a `boxW/boxH` (kutunun tanımlandığı görüntü boyutu) eklendi (roster.json'da "boxW","boxH"), düzenlemede `Crop.scaleBox` ile yeni boyuta ölçeklenir. Eski kayıtlarda boyut yok (0) → kutu olduğu gibi kullanılır (eski davranış); bu kayıtlar yeniden kaydedilince düzelir.

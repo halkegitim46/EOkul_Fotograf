@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eokul.studio.core.Crop
 import com.eokul.studio.core.RosterParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -224,6 +225,11 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         if (i < 0) return
         classes[i] = fn(classes[i])
         persist()
+    }
+
+    /** Sınıftaki tüm "tekrar çekilmeli" işaretlerini kaldırır (eski sürümün hatalı işaretleri için). */
+    fun clearRetakeFlags(classId: String) {
+        updateClass(classId) { c -> c.copy(students = c.students.map { if (it.retake) it.copy(retake = false) else it }) }
     }
 
     fun toggleRetake(classId: String, no: String) {
@@ -500,13 +506,14 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             if (found.toString() != st.origUri) updateStudent(classId, no) { it.copy(origUri = found.toString()) }
-            onPhotoReady(classId, no, found, null, true, st.box, directEdit = true)
+            onPhotoReady(classId, no, found, null, true, st.box, directEdit = true, savedBoxW = st.boxW, savedBoxH = st.boxH)
         }
     }
 
     fun onPhotoReady(
         classId: String, no: String, source: Uri, temp: File?,
-        fromSaved: Boolean = false, savedBox: Box? = null, directEdit: Boolean = false
+        fromSaved: Boolean = false, savedBox: Box? = null, directEdit: Boolean = false,
+        savedBoxW: Int = 0, savedBoxH: Int = 0
     ) {
         captureJob?.cancel()
         capture?.temp?.delete()
@@ -533,7 +540,9 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 s.iw = dims.first
                 s.ih = dims.second
                 val box = if (savedBox != null) {
-                    savedBox.fitInside(dims.first, dims.second)
+                    // Kayıtlı kutu çekim anındaki görüntü boyutundadır; açılan orijinal küçültülmüş olabilir → ölçekle
+                    Box.of(Crop.scaleBox(savedBox.toArray(), savedBoxW, savedBoxH, dims.first, dims.second))
+                        .fitInside(dims.first, dims.second)
                 } else {
                     ImageOps.defaultBox(dims.first, dims.second, faces.firstOrNull(), set)
                 }
@@ -1048,7 +1057,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val before = st
         updateStudent(cap.classId, cap.no) {
             it.copy(
-                captured = true, updatedAt = System.currentTimeMillis(), box = box, faceCount = faceCount,
+                captured = true, updatedAt = System.currentTimeMillis(), box = box, boxW = iw, boxH = ih, faceCount = faceCount,
                 retake = warned,
                 score = if (newScore >= 0) newScore else it.score
             )

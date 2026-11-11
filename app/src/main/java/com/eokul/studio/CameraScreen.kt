@@ -484,11 +484,11 @@ fun CameraScreen(studio: StudioViewModel, classId: String, no: String) {
             val smart = studio.settings.smartShot
             val motionOk = motion.steady
             var ev = evaluateLive(l, studio.settings, motionOk, smart, false, false)
-            // Işık engeli yalnızca uyarıdır: 4 sn sonra vazgeçilir (ortam değiştirilemiyorsa çekim kilitlenmesin)
+            // Işık engeli yalnızca uyarıdır: 2 sn sonra vazgeçilir (ortam değiştirilemiyorsa çekim kilitlenmesin)
             var lightIgnored = false
             if (ev.lightOnly) {
                 if (lightSince == 0L) lightSince = now
-                if (now - lightSince > 4000L) {
+                if (now - lightSince > 2000L) {
                     lightIgnored = true
                     ev = evaluateLive(l, studio.settings, motionOk, smart, false, true)
                 }

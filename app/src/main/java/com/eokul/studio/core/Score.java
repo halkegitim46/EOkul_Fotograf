@@ -32,8 +32,8 @@ public final class Score {
             light = 12;
         } else if (brightness < 95) {
             light = 12 * clamp((brightness - 40) / 55.0);
-        } else if (brightness > 140) {
-            light = 12 * clamp((200 - brightness) / 60.0);
+        } else if (brightness > 165) {
+            light = 12 * clamp((225 - brightness) / 60.0);
         } else {
             light = 12;
         }

@@ -13,9 +13,16 @@ public final class Lighting {
     public static final int UNEVEN = 2;
     public static final int GLARE = 3;
 
-    /** Arka plan yüzden en az bu kadar (0-255 ışık birimi) parlaksa ve yeterince aydınlıksa arka ışık. */
+    /**
+     * Arka ışık: arka plan yüzden belirgin parlak VE yüz kendi başına da karanlık (yetersiz pozlanmış).
+     * Yalnızca "arka plan parlak" yetmez: kamera yüze pozlama yaptığı için düz beyaz arka plan (e-Okul için istenen)
+     * her zaman yüzden parlak görünür; yüz iyi aydınlıksa bu bir sorun değildir.
+     */
     public static final double BACKLIT_DELTA = 40.0;
     public static final double BACKLIT_BG_MIN = 130.0;
+    /** Yüz ortalaması bunun altındaysa (ve arka plan parlaksa) arka ışık. */
+    public static final double BACKLIT_FACE_MAX = 90.0;
+
     public static final double UNEVEN_RATIO = 0.35;
     public static final double GLARE_CLIP_FRAC = 0.10;
 
@@ -87,7 +94,7 @@ public final class Lighting {
         double clipFrac = clip / (double) faceN;
 
         int code = OK;
-        if (!Double.isNaN(bg) && bg - face > BACKLIT_DELTA && bg > BACKLIT_BG_MIN) code = BACKLIT;
+        if (!Double.isNaN(bg) && bg > BACKLIT_BG_MIN && bg - face > BACKLIT_DELTA && face < BACKLIT_FACE_MAX) code = BACKLIT;
         else if (clipFrac > GLARE_CLIP_FRAC || face > 205) code = GLARE;
         else if (side > UNEVEN_RATIO && face > 40) code = UNEVEN;
         return new Report(code, face, bg, side, clipFrac);
