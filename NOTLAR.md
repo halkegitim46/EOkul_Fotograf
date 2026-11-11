@@ -107,3 +107,15 @@ Düzeltme: arka ışık = arka plan parlak VE yüz ortalaması <90 (beyaz duvar 
 
 ## Kırpmayı düzenle: kutu ölçekleme hatası
 Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel koordinatındadır (HQ çekimde ~2592 px). "Kırpmayı düzenle" ise Orijinaller klasöründeki, gerekirse küçültülmüş (≤1600 px) kopyayı açıyordu ve kutuyu ölçeklemiyordu → yanlış bölge. Düzeltme: Student'a `boxW/boxH` (kutunun tanımlandığı görüntü boyutu) eklendi (roster.json'da "boxW","boxH"), düzenlemede `Crop.scaleBox` ile yeni boyuta ölçeklenir. Eski kayıtlarda boyut yok (0) → kutu olduğu gibi kullanılır (eski davranış); bu kayıtlar yeniden kaydedilince düzelir.
+
+## Çekim sonrası çözmeyi önden başlatma (prefetch)
+Önceden: kare seçildikten sonra inceleme ekranı tam çözünürlüklü görüntüyü yeniden çözüp yüz tespiti yapıyordu (~0.5–1 sn bekleme).
+Şimdi: her kare kaydedilir kaydedilmez (önce yatay çevirme EXIF'i uygulanır) `StudioViewModel.prefetchPhoto` ile çözme + yüz/segmentasyon arka planda başlar, kare puanlamasıyla paralel çalışır. Seçilen kare buysa `onPhotoReady` hazır sonucu kullanır; değilse iş iptal edilip eski yolla çözülür. En fazla bir bekleyen iş; ekrandan çıkılırsa `dropPrefetch`. Yatay çevirme artık her karede kare kaydedilince yapılır (önceden yalnızca seçilen karede, sonda); `BurstPick` ayna içeren EXIF yönlerinde (2,4,5,7) de doğru döndürür.
+
+## İşlem günlüğü ve tanılama raporu
+- `core/OpLog.java`: cihaz üstü JSON-satır günlüğü (`filesDir/oplog.jsonl`, ~600 KB sınır, eski yarısı atılır). Çekim akışını bekletmez (tek iş parçacıklı yazıcı).
+- `core/OpLogReport.java`: günlükten özet (süre medyan/%90, erken çıkış, ön çözme isabeti, puanlar, uyarı kodları, hatalar) + otomatik **Bulgular**.
+- `Ops.kt`: sarmalayıcı; olaylar: app_start, shutter, frame, capture, review_ready, save_start, save, discard, error, crash, op(backup).
+- Gizlilik: öğrenci adı yazılmaz; numara kısa hash ile anılır.
+- Ayarlar › "Tanılama ve rapor": "Raporu kaydet" → kayıt klasörüne `Rapor-tarih.txt`; "Kaydı temizle".
+- Düzeltilen hata (testle yakalandı): `OpLog.clear()` kilit tutarken flush bekleyip kilitleniyordu.
