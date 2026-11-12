@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Vizör köşeleri -->
+    <path
+        android:strokeColor="#CCFFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M30,36 L30,28 Q30,25 33,25 L41,25 M67,25 L75,25 Q78,25 78,28 L78,36 M78,72 L78,80 Q78,83 75,83 L67,83 M41,83 L33,83 Q30,83 30,80 L30,72" />
+    <!-- Vesikalık kart (133x171 oranı) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,31 L71,31 Q73,31 73,33 L73,75 Q73,77 71,77 L37,77 Q35,77 35,75 L35,33 Q35,31 37,31 Z" />
+    <!-- Baş -->
+    <path
+        android:fillColor="#3B6FD4"
+        android:pathData="M45.5,47 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0 Z" />
+    <!-- Omuzlar -->
+    <path
+        android:fillColor="#3B6FD4"
+        android:pathData="M39,77 C39,64 46,58.5 54,58.5 C62,58.5 69,64 69,77 Z" />
+    <!-- Onay işareti rozeti -->
+    <path
+        android:fillColor="#34A853"
+        android:pathData="M63,74 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M67.8,74.2 L70.8,77.2 L76.4,71" />
+</vector>
