@@ -1628,7 +1628,9 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             if (o.outWidth != TARGET_W || o.outHeight != TARGET_H) throw IOException("Çıktı doğrulanamadı (${o.outWidth}x${o.outHeight})")
         }
 
-        Output.writePath(ctx, root, listOf(clsDir), "$stem.jpg", "image/jpeg", jpeg)
+        val mainUri = Output.writePath(ctx, root, listOf(clsDir), "$stem.jpg", "image/jpeg", jpeg)
+        // Yazım sonrası doğrulama: dosya klasörde gerçekten duruyor ve beklenen boyutta mı? (Sessiz silinme/kaybolma hatalarına karşı.)
+        if (!Output.exists(ctx, mainUri)) throw IOException("Fotoğraf yazıldı ancak klasörde bulunamadı: $stem.jpg")
 
         // Ana çıktı (kayıt klasöründeki 133x171 JPEG) güvenle yazıldı. Bundan sonraki adımlar başarısız olursa
         // kayıt iptal edilmez; kullanıcıya açık bir uyarı verilir (ana fotoğraf zaten teslim edilmiş durumda).
@@ -1652,6 +1654,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 ext = "jpg"
             }
             val newUri = Output.writePath(ctx, root, listOf(clsDir, ORIGINALS_DIR), "$stem.$ext", mime, bytes)
+            if (!Output.exists(ctx, newUri)) throw IOException("Orijinal yazıldı ancak klasörde bulunamadı")
             val old = st.origUri
             if (old != null && old != newUri.toString()) Output.deleteUri(ctx, Uri.parse(old))
             origUri = newUri.toString()

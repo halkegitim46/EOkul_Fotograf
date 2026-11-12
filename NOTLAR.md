@@ -145,3 +145,10 @@ Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel ko
 ## Öğrenci numarası düzenleme
 - Sınıf ekranı > öğrenci menüsü > düzenle: artık numara ve ad birlikte düzenlenir (`StudioViewModel.editStudent`). Numara 1–11 haneli sayı, sınıfta tekil olmalı; fotoğraf işlenirken/kaydedilirken reddedilir.
 - Numara değişince: liste yeniden sıralanır, uygulama içi küçük kopya (`photos/<sınıf>/<no>.jpg`) taşınır, kayıt klasöründeki fotoğraf ve orijinal `syncFileNames` ile yeniden adlandırılır.
+
+## Hız ayarı ve yazım doğrulaması
+- Rapor: gülümseyen öğrencilerde ilk kare ≈71 (ceza 14) → hep 3 kare (2,6 sn). Gülümseme cezası 14 → 5, "yeterince iyi" eşiği 86 → 80 (BurstPick.GOOD_ENOUGH ve OpLogReport.GOOD_ENOUGH aynı değer olmalı). Gerçek etki yeni raporla ölçülecek.
+- Kayıt sonrası doğrulama: ana fotoğraf ve orijinal yazıldıktan sonra klasörde gerçekten açılabiliyor mu (Output.exists); değilse kayıt hata/uyarı verir (sessiz silinmeye karşı).
+
+## Hızlı onay görme süresi
+- `Settings.autoAcceptDelayMs` (varsayılan 1800 ms, 0,7–4 sn): kırpılmış fotoğraf ekranda bu kadar görünür, sonra otomatik kaydedilir. Ayarlar > Çekim. Önceki sabit 700 ms idi.

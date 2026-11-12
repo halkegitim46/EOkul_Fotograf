@@ -275,7 +275,7 @@ fun ReviewScreen(studio: StudioViewModel) {
                 cap.error == null && !cap.saving && score >= studio.settings.autoAcceptScore && hardCount == 0
             LaunchedEffect(autoPending) {
                 if (autoPending) {
-                    delay(700)
+                    delay(studio.settings.autoAcceptDelayMs.toLong())
                     cap.auto = true
                     studio.saveCapture()
                 }

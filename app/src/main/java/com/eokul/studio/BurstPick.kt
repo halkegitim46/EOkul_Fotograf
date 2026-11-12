@@ -24,7 +24,7 @@ object BurstPick {
     class Shot(val file: File, val eyeOpen: Float)
 
     /** İlk kare bu puanı geçerse kalan kareler çekilmez: çoğu öğrenci için çekim süresi ~3 kat kısalır. */
-    const val GOOD_ENOUGH = 86
+    const val GOOD_ENOUGH = 80
 
     /** Yalnızca seri çekimde kullanılır; çağrı arka plan iş parçacığından yapılır (Tasks.await bekler). */
     private val detector by lazy {

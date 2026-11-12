@@ -20,7 +20,7 @@ public final class OpLogReport {
     private OpLogReport() {}
 
     /** İlk karenin "yeterince iyi" sayıldığı puan ({@code BurstPick.GOOD_ENOUGH} ile aynı olmalı). */
-    public static final int GOOD_ENOUGH = 86;
+    public static final int GOOD_ENOUGH = 80;
 
     public static String build(List<OpLog.Event> ev, String header, List<String> rawTail) {
         StringBuilder sb = new StringBuilder();

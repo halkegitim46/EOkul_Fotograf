@@ -11,7 +11,7 @@ public final class Burst {
     public static final int NO_FACE_PENALTY = 35;
     public static final int EYES_CLOSED_PENALTY = 25;
     public static final double EYES_CLOSED_BELOW = 0.35;
-    public static final int SMILE_MAX_PENALTY = 14;
+    public static final int SMILE_MAX_PENALTY = 5;
     public static final double SMILE_FROM = 0.35;
     public static final double SMILE_FULL = 0.80;
 

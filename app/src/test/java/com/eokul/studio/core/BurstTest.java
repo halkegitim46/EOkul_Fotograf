@@ -21,8 +21,8 @@ public class BurstTest {
     @Test public void smilePenaltyScalesAndCaps() {
         assertEquals(80, Burst.total(80, true, 0.30, 0.9, Lighting.OK));
         int mid = Burst.total(80, true, 0.6, 0.9, Lighting.OK);
-        assertTrue(mid < 80 && mid > 66);
-        assertEquals(66, Burst.total(80, true, 1.0, 0.9, Lighting.OK));
+        assertTrue(mid < 80 && mid > 75);
+        assertEquals(75, Burst.total(80, true, 1.0, 0.9, Lighting.OK));
     }
 
     @Test public void noFaceAndBadLight() {

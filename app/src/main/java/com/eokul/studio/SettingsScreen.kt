@@ -86,6 +86,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     var flipFront by remember { mutableStateOf(cur.flipFront) }
     var autoAcc by remember { mutableStateOf(cur.autoAccept) }
     var accScore by remember { mutableStateOf(cur.autoAcceptScore.toFloat()) }
+    var accDelay by remember { mutableStateOf(cur.autoAcceptDelayMs.toFloat()) }
     var keepOrig by remember { mutableStateOf(cur.keepOriginals) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -123,6 +124,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             flipFront = flipFront,
             autoAccept = autoAcc,
             autoAcceptScore = accScore.roundToInt().coerceIn(60, 95),
+            autoAcceptDelayMs = ((accDelay / 100f).roundToInt() * 100).coerceIn(700, 4000),
             topGap = (topGap * 100.0).roundToInt() / 100.0,
             bottomGap = (bottomGap * 100.0).roundToInt() / 100.0,
             leftGap = (leftGap * 100.0).roundToInt() / 100.0,
@@ -225,9 +227,11 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
         if (autoAcc) {
             Text("Otomatik kayıt için en düşük kalite puanı: ${accScore.roundToInt()}", style = MaterialTheme.typography.bodyMedium)
             Slider(value = accScore, onValueChange = { accScore = it }, valueRange = 60f..95f)
+            Text("Kırpılmış fotoğrafı görme süresi: ${"%.1f".format(accDelay / 1000f)} sn", style = MaterialTheme.typography.bodyMedium)
+            Slider(value = accDelay, onValueChange = { accDelay = it }, valueRange = 700f..4000f)
         }
         Text(
-            "Uyarısı olmayan ve puanı eşiği geçen fotoğraf, 1 sn içinde onay beklemeden kaydedilir ve sıradaki öğrenciye geçilir (\"Durdur\" ile engellenebilir). Uyarılı veya düşük puanlı fotoğrafta onay ekranı açık kalır.",
+            "Uyarısı olmayan ve puanı eşiği geçen fotoğraf, ayarlanan süre (varsayılan 1,8 sn) içinde onay beklemeden kaydedilir ve sıradaki öğrenciye geçilir (\"Durdur\" ile engellenebilir). Uyarılı veya düşük puanlı fotoğrafta onay ekranı açık kalır.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(8.dp))

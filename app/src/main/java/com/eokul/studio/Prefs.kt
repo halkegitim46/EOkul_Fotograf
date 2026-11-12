@@ -47,6 +47,8 @@ data class Settings(
     /** Kalite puanı eşiğin üstünde ve uyarı yoksa onay beklemeden kaydet. */
     val autoAccept: Boolean = true,
     val autoAcceptScore: Int = 80,
+    /** Hızlı onayda, kırpılmış fotoğrafın ekranda görünüp kaydedilmeden önce beklediği süre (ms). */
+    val autoAcceptDelayMs: Int = 1800,
     /** PIN (SHA-256 + tuz); null ise uygulama kilitsiz. */
     val pinHash: String? = null,
     val pinSalt: String? = null,
@@ -108,6 +110,7 @@ class Prefs(context: Context) {
             flipFront = sp.getBoolean("flipFront", d.flipFront),
             autoAccept = sp.getBoolean("autoAccept", d.autoAccept),
             autoAcceptScore = sp.getInt("autoAcceptScore", d.autoAcceptScore).coerceIn(60, 95),
+            autoAcceptDelayMs = sp.getInt("autoAcceptDelayMs", d.autoAcceptDelayMs).coerceIn(700, 4000),
             pinHash = sp.getString("pinHash", null)?.takeIf { it.isNotBlank() },
             pinSalt = sp.getString("pinSalt", null)?.takeIf { it.isNotBlank() },
             lastBackupMs = sp.getLong("lastBackupMs", 0L)
@@ -140,6 +143,7 @@ class Prefs(context: Context) {
             .putBoolean("flipFront", s.flipFront)
             .putBoolean("autoAccept", s.autoAccept)
             .putInt("autoAcceptScore", s.autoAcceptScore)
+            .putInt("autoAcceptDelayMs", s.autoAcceptDelayMs)
             .putString("pinHash", s.pinHash)
             .putString("pinSalt", s.pinSalt)
             .putLong("lastBackupMs", s.lastBackupMs)
