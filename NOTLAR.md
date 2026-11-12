@@ -160,3 +160,5 @@ Kapsam: Output, StudioViewModel (kayıt/geri alma/PIN), CameraScreen, ReviewScre
 - Gizlilik: günlük/rapora giren hata metinlerinden "numara-ad.jpg" dosya adları `OpLog.scrub` ile silinir (testli); öğrenci kimliği cihaza özgü rastgele tuzlu SHA-256'nın ilk 3 baytıdır (numaraya geri çevrilemez).
 - Dayanıklılık: kayıt başarısız olursa geri alma yalnızca çekimle değişen alanları döndürür (bu arada yapılan ad/numara düzenlemesi korunur); 6 saatten eski yarım kalmış çekim kareleri açılışta temizlenir.
 - Bilinen sınırlar: SAF yazım/rename davranışı sağlayıcıya göre değişir ve yalnızca cihazda doğrulanabilir; Kotlin bu ortamda derlenemiyor. Yedeklenen roster'daki `origUri` alanı doğrulanmadan kullanılır (yalnızca uygulamanın izinli URI'lerine erişebilir; düşük risk).
+
+- CI (yeşil) derleme günlüğündeki 5 derleyici uyarısı giderildi (gereksiz `!!` ve Elvis).

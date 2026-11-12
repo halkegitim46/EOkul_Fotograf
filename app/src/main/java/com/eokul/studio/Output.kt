@@ -123,16 +123,16 @@ object Output {
                 // Hedef boşken sağlayıcı rename desteklemiyorsa yeni dosyaya kopyalanır.
                 destination = dir.createFile(mime, name)
                     ?: throw IOException("Yeni dosya oluşturulamadı: $name")
-                copyDocument(ctx, tmp, destination!!)
+                copyDocument(ctx, tmp, destination)
             }
 
             // İçerik geçici dosyada zaten tam okunarak doğrulandı; taşıma sonrası yalnızca varlık ve boyut denetlenir.
-            verifyDocument(ctx, destination!!, written, fullRead = false)
+            verifyDocument(ctx, destination, written, fullRead = false)
             committed = true
             backup?.delete()
             // Kopyalama yolunda geçici dosya artık gereksiz; rename yolunda tmp zaten nihai dosyadır, silinmez.
             if (!tmpRenamed) try { tmp.delete() } catch (_: Exception) { }
-            return destination!!.uri
+            return destination.uri
         } catch (e: Exception) {
             if (!committed) {
                 try { destination?.delete() } catch (_: Exception) { }

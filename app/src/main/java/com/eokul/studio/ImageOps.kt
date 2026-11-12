@@ -164,7 +164,7 @@ object ImageOps {
         } catch (e: Exception) {
             ExifInterface.ORIENTATION_NORMAL
         }
-        var cur: Bitmap = bmp ?: throw IOException("Resim çözülemedi")
+        var cur: Bitmap = bmp
         val m = Matrix()
         when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)

@@ -271,7 +271,7 @@ class RosterStore(private val file: File) {
             null
         } catch (e: Exception) {
             try {
-                if (hadOriginal && rollback?.exists() == true) replaceFile(rollback!!, file)
+                if (hadOriginal && rollback?.exists() == true) replaceFile(rollback, file)
                 else if (!hadOriginal) file.delete()
             } catch (_: Exception) {
                 return "${e.message ?: e.javaClass.simpleName}; eski liste otomatik geri getirilemedi, .rollback dosyası korunmuş olabilir"
