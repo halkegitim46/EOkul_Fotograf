@@ -141,3 +141,7 @@ Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel ko
 - Düzeltme: `tmpRenamed` bayrağı; rename sonrası tmp nesnesi hiçbir yolda silinmez.
 - Onarım: Ana ekran > Araçlar > "🛠 Eksik klasör dosyalarını onar" eksik fotoğrafları uygulama içi 133x171 kopyadan yeniden yazar. Orijinaller geri getirilemez (yeniden çekim gerekir).
 - Ders: SAF yazım davranışı yalnızca cihazda doğrulanabilir; Veri denetimi klasör kontrolü bu hatayı yakaladı.
+
+## Öğrenci numarası düzenleme
+- Sınıf ekranı > öğrenci menüsü > düzenle: artık numara ve ad birlikte düzenlenir (`StudioViewModel.editStudent`). Numara 1–11 haneli sayı, sınıfta tekil olmalı; fotoğraf işlenirken/kaydedilirken reddedilir.
+- Numara değişince: liste yeniden sıralanır, uygulama içi küçük kopya (`photos/<sınıf>/<no>.jpg`) taşınır, kayıt klasöründeki fotoğraf ve orijinal `syncFileNames` ile yeniden adlandırılır.

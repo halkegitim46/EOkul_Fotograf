@@ -486,6 +486,50 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         return null
     }
 
+    /**
+     * Öğrencinin numarasını ve/veya adını değiştirir. Numara değişirse uygulama içi küçük kopya ve kayıt klasöründeki
+     * dosyalar (fotoğraf, orijinal) yeni numaraya göre yeniden adlandırılır; liste numaraya göre yeniden sıralanır.
+     * Hata varsa açıklama, başarılıysa null döner.
+     */
+    fun editStudent(classId: String, oldNo: String, newNoRaw: String, name: String): String? {
+        val newNo = newNoRaw.trim()
+        val nm = RosterParser.normalizeSpaces(name)
+        if (!newNo.matches(Regex("\\d{1,11}"))) return "Numara 1–11 haneli sayı olmalı"
+        if (nm.length < 2) return "Ad soyad girin"
+        val c = classById(classId) ?: return "Sınıf bulunamadı"
+        val st = c.students.firstOrNull { it.no == oldNo } ?: return "Öğrenci bulunamadı"
+        if (newNo == oldNo) return renameStudent(classId, oldNo, nm)
+        if (c.students.any { it.no == newNo }) return "Bu numara bu sınıfta zaten var"
+        val busy = capture?.let { it.classId == classId && it.no == oldNo } == true ||
+            pendingCaptureOriginals.containsKey(captureKey(classId, oldNo))
+        if (busy) return "Bu öğrencinin fotoğrafı şu an işleniyor/kaydediliyor; birkaç saniye sonra tekrar deneyin"
+        updateClass(classId) { cl ->
+            cl.copy(
+                students = cl.students.map { if (it.no == oldNo) it.copy(no = newNo, name = nm) else it }
+                    .sortedWith { a, b -> RosterParser.compareNo(a.no, b.no) }
+            )
+        }
+        Ops.log("op", "name", "renumber", "ok", true)
+        val wasCaptured = st.captured
+        viewModelScope.launch(Dispatchers.IO) {
+            saveMutex.withLock {
+                try {
+                    val from = Naming.privatePhoto(ctx, classId, oldNo)
+                    val to = Naming.privatePhoto(ctx, classId, newNo)
+                    if (from.exists()) {
+                        to.parentFile?.mkdirs()
+                        if (to.exists()) to.delete()
+                        if (!from.renameTo(to)) { from.copyTo(to, overwrite = true); from.delete() }
+                    }
+                } catch (e: Throwable) {
+                    Ops.error("renumber_private", e)
+                }
+            }
+            if (wasCaptured) withContext(Dispatchers.Main) { syncFileNames(classId) }
+        }
+        return null
+    }
+
     fun renameStudent(classId: String, no: String, name: String): String? {
         val nm = RosterParser.normalizeSpaces(name)
         if (nm.length < 2) return "Ad soyad girin"

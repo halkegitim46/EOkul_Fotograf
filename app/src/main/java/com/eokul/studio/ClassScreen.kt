@@ -275,11 +275,12 @@ fun ClassScreen(studio: StudioViewModel, classId: String) {
 
     val rn = renameFor
     if (rn != null) {
-        NameDialog(
-            title = "Ad soyad düzenle", label = "Ad soyad", initial = rn.name, confirmText = "Kaydet",
+        AddStudentDialog(
+            title = "Öğrenciyi düzenle", confirmText = "Kaydet", initialNo = rn.no, initialName = rn.name,
+            note = if (rn.captured) "Numara değişirse fotoğraf dosyaları da yeni numaraya göre yeniden adlandırılır." else null,
             onDismiss = { renameFor = null },
-            onConfirm = { name ->
-                val err = studio.renameStudent(cls.id, rn.no, name)
+            onConfirm = { no, name ->
+                val err = studio.editStudent(cls.id, rn.no, no, name)
                 if (err == null) renameFor = null
                 err
             }
@@ -451,13 +452,21 @@ private fun StudentRow(
 }
 
 @Composable
-private fun AddStudentDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> String?) {
-    var no by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
+private fun AddStudentDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> String?,
+    title: String = "Öğrenci ekle",
+    confirmText: String = "Ekle",
+    initialNo: String = "",
+    initialName: String = "",
+    note: String? = null
+) {
+    var no by remember { mutableStateOf(initialNo) }
+    var name by remember { mutableStateOf(initialName) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Öğrenci ekle") },
+        title = { Text(title) },
         text = {
             Column {
                 OutlinedTextField(
@@ -472,10 +481,11 @@ private fun AddStudentDialog(onDismiss: () -> Unit, onConfirm: (String, String) 
                     value = name, onValueChange = { name = it; error = null },
                     label = { Text("Ad soyad") }, singleLine = true
                 )
+                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp)) }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
         },
-        confirmButton = { TextButton(onClick = { error = onConfirm(no, name) }) { Text("Ekle") } },
+        confirmButton = { TextButton(onClick = { error = onConfirm(no, name) }) { Text(confirmText) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } }
     )
 }
