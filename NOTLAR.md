@@ -111,3 +111,26 @@ Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel ko
 ## Çekim sonrası çözmeyi önden başlatma (prefetch)
 Önceden: kare seçildikten sonra inceleme ekranı tam çözünürlüklü görüntüyü yeniden çözüp yüz tespiti yapıyordu (~0.5–1 sn bekleme).
 Şimdi: her kare kaydedilir kaydedilmez (önce yatay çevirme EXIF'i uygulanır) `StudioViewModel.prefetchPhoto` ile çözme + yüz/segmentasyon arka planda başlar, kare puanlamasıyla paralel çalışır. Seçilen kare buysa `onPhotoReady` hazır sonucu kullanır; değilse iş iptal edilip eski yolla çözülür. En fazla bir bekleyen iş; ekrandan çıkılırsa `dropPrefetch`. Yatay çevirme artık her karede kare kaydedilince yapılır (önceden yalnızca seçilen karede, sonda); `BurstPick` ayna içeren EXIF yönlerinde (2,4,5,7) de doğru döndürür.
+
+## İşlem günlüğü ve tanılama raporu
+- `core/OpLog.java`: cihaz üstü JSON-satır günlüğü (`filesDir/oplog.jsonl`, ~600 KB sınır, eski yarısı atılır). Çekim akışını bekletmez (tek iş parçacıklı yazıcı).
+- `core/OpLogReport.java`: günlükten özet (süre medyan/%90, erken çıkış, ön çözme isabeti, puanlar, uyarı kodları, hatalar) + otomatik **Bulgular**.
+- `Ops.kt`: sarmalayıcı; olaylar: app_start, shutter, frame, capture, review_ready, save_start, save, discard, error, crash, op(backup).
+- Gizlilik: öğrenci adı yazılmaz; numara kısa hash ile anılır.
+- Ayarlar › "Tanılama ve rapor": "Raporu kaydet" → kayıt klasörüne `Rapor-tarih.txt`; "Kaydı temizle".
+- Düzeltilen hata (testle yakalandı): `OpLog.clear()` kilit tutarken flush bekleyip kilitleniyordu.
+
+## Faz 1 / Faz 2 incelemesi ve rötuşlar
+- Gelen dosyalar (Output, Roster, RestoreTransaction, StudioViewModel, Crop, Prefs, Live, CameraScreen, SettingsScreen) projedekilerle aynıydı; değişiklikler zaten içerideydi. Hepsi korundu.
+- Yedek / rapor dosyaları artık `EOkulStudio_Yedek_YYYY-AA-GG_SS-DD-SS.zip`, `EOkulStudio_GeriYuklemeOncesi_…zip`, `EOkulStudio_Rapor_…txt`. Manifeste `format` ve `appVersion` eklendi. Eski `Yedek-….zip` dosyaları hâlâ geri yüklenir (denetim içeriğe bakar).
+- Output.writeStream: taşıma sonrası ikinci tam okuma kaldırıldı (yalnızca varlık+boyut), rename sonrası klasör yeniden taranmıyor, 1 saatten eski `.tmp-` artıkları klasör başına bir kez temizleniyor.
+- `Crop.headFraction`: baş oranı dikey ve yatay boşluklardan hangisi belirleyiciyse onu izler; `guideFor` ve `GuideOverlay` aynı kaynağı kullanır (canlı kılavuz = çekim sonrası kırpma). Testli.
+- Ayarlar: sol/sağ boşluk "gelişmiş" altına alındı.
+
+## Merkezleme, rapor paylaşımı, orijinal tanılaması
+- Hata: `Crop.defaultCropBox` yatay konumu yüzün SOL kenarına göre hizalıyordu (x1 = yüz.sol − solBoşluk·w); dikey sınır belirleyiciyken kutu yüzden geniş olunca yüz sola yaslanıyor, sağ taraf boş kalıyordu. Artık x1 = merkez − w·(1+sol−sağ)/2 (eşit boşlukta tam ortada). Testler eklendi.
+- Rapor: "Raporu paylaş" (Android paylaşım) ve "Dosyaya kaydet" (konumu kullanıcı seçer). Kayıt klasörüne gizli yazma kaldırıldı.
+- Orijinal saklama: IOException dışındaki hatalar da yakalanır (ana kayıt geri alınmaz), sonuç günlüğe `orig` olayı olarak yazılır; rapor "Orijinal saklanamadı / ayar kapalı" bulgusu verir.
+
+## Veri denetimi: kayıt klasörü kontrolü
+- Ana ekran > Araçlar > "🩺 Veri denetimi" artık kayıt klasörünü de okur (değiştirmez): sınıf klasörü var mı, çekilmiş öğrencilerin fotoğrafı/orijinali klasörde mi, yarım kalmış `.tmp-`/`.old-` gizli dosya var mı. Klasör yoksa kökteki adlar listelenir.

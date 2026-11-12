@@ -37,8 +37,16 @@ object BurstPick {
         )
     }
 
+    /** Kare puanı ve günlük için ayrıntılar (yüz yoksa eye/smile -1). */
+    class Detail(
+        val score: Int, val face: Boolean = false, val eye: Double = -1.0, val smile: Double = -1.0, val light: Int = 0,
+        val blur: Double = -1.0, val bright: Double = -1.0, val contrast: Double = -1.0
+    )
+
     /** Kare puanı (0..100). Okunamayan kare -1 alır. */
-    fun score(shot: Shot): Int {
+    fun score(shot: Shot): Int = scoreD(shot).score
+
+    fun scoreD(shot: Shot): Detail {
         var bmp: Bitmap? = null
         var rotated: Bitmap? = null
         return try {
@@ -49,7 +57,7 @@ object BurstPick {
             bmp = BitmapFactory.decodeFile(
                 shot.file.absolutePath,
                 BitmapFactory.Options().apply { inSampleSize = sample }
-            ) ?: return -1
+            ) ?: return Detail(-1)
             val deg = when (ExifInterface(shot.file.absolutePath).getAttributeInt(
                 ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
             )) {
@@ -92,9 +100,13 @@ object BurstPick {
                 0.0, q.blurRatio, face?.headEulerAngleZ?.toDouble() ?: 0.0, face?.headEulerAngleY?.toDouble() ?: 0.0,
                 q.brightness, q.contrast, eye.toDouble()
             )
-            Burst.total(base, face != null, smile.toDouble(), eye.toDouble(), light)
+            Detail(
+                Burst.total(base, face != null, smile.toDouble(), eye.toDouble(), light), face != null,
+                eye.toDouble(), smile.toDouble(), light, q.blurRatio, q.brightness, q.contrast
+            )
         } catch (e: Throwable) {
-            -1
+            Ops.error("score", e)
+            Detail(-1)
         } finally {
             try { if (rotated != null && rotated !== bmp) rotated.recycle() } catch (_: Exception) { }
             try { bmp?.recycle() } catch (_: Exception) { }

@@ -140,10 +140,11 @@ fun guideFor(w: Float, h: Float, s: Settings): Guide {
     val cw0 = w * 0.88f
     val ch = (cw0 * TARGET_H / TARGET_W).coerceAtMost(h * 0.96f)
     val cw = ch * TARGET_W / TARGET_H
-    val left = (w - cw) / 2f
+    val left = (w - cw) / 2f + (s.rightGap - s.leftGap).toFloat() * cw / 2f
     val top = (h - ch) / 2f
     val hair = top + ch * s.topGap.toFloat()
-    val chin = hair + ch * s.headFrac.toFloat()
+    // Baş yüksekliği, kırpma geometrisiyle aynı kaynaktan (Crop.headFraction): yatay boşluklar büyükse baş küçülür.
+    val chin = hair + ch * com.eokul.studio.core.Crop.headFraction(s.cropParams(), com.eokul.studio.core.Crop.FACE_ASPECT).toFloat()
     return Guide(left, top, cw, ch, hair, chin)
 }
 

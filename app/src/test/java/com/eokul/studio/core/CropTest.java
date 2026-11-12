@@ -43,7 +43,7 @@ public class CropTest {
     public void typicalPortraitKeepsWholeFaceAndHeadTop() {
         Crop.Params p = new Crop.Params();
         p.topGap = 0.03;
-        p.headFrac = 0.62;
+        p.bottomGap = 0.35;
         p.hairMin = 0.01;
         int iw = 1200, ih = 1600;
         double[] face = {450, 500, 750, 860};
@@ -53,6 +53,37 @@ public class CropTest {
         assertTrue("Saç tepesi kadrajda", b[1] <= headTop);
         assertTrue("Çene kadrajda", b[3] >= face[3]);
         assertTrue("Yüz yatayda kadrajda", b[0] <= face[0] && b[2] >= face[2]);
+    }
+
+
+    @Test public void independentMarginsAreRespectedWhenImageHasRoom() {
+        int iw = 2400, ih = 2400;
+        double[] face = {900, 650, 1200, 1010};
+        double headTop = 610;
+        Crop.Params p = new Crop.Params();
+        p.topGap = 0.04;
+        p.bottomGap = 0.30;
+        p.leftGap = 0.25;
+        p.rightGap = 0.10;
+        double[] b = Crop.defaultCropBox(iw, ih, face, headTop, p);
+        checkBox(b, iw, ih, "bağımsız kenar boşlukları");
+        double w = b[2] - b[0], h = b[3] - b[1];
+        assertTrue("üst boşluk", headTop - b[1] >= 0.04 * h - 1.0);
+        assertTrue("alt boşluk", b[3] - face[3] >= 0.30 * h - 1.0);
+        assertTrue("sol boşluk", face[0] - b[0] >= 0.25 * w - 1.0);
+        assertTrue("sağ boşluk", b[2] - face[2] >= 0.10 * w - 1.0);
+    }
+
+    @Test public void widerShoulderSettingProducesLargerCrop() {
+        int iw = 2400, ih = 2400;
+        double[] face = {900, 650, 1200, 1010};
+        Crop.Params tight = new Crop.Params();
+        tight.topGap = 0.03; tight.bottomGap = 0.20;
+        Crop.Params wide = tight.copy();
+        wide.bottomGap = 0.42;
+        double[] a = Crop.defaultCropBox(iw, ih, face, 610, tight);
+        double[] b = Crop.defaultCropBox(iw, ih, face, 610, wide);
+        assertTrue("göğüs boşluğu artınca kadraj yüksekliği büyümeli", b[3] - b[1] > a[3] - a[1]);
     }
 
     @Test public void scaleBoxMapsToResizedOriginal() {
@@ -68,5 +99,59 @@ public class CropTest {
         org.junit.Assert.assertArrayEquals(b, Crop.scaleBox(b, 0, 0, 1600, 1200), 0);
         org.junit.Assert.assertArrayEquals(b, Crop.scaleBox(b, 1600, 1200, 1600, 1200), 0);
         org.junit.Assert.assertNotSame(b, Crop.scaleBox(b, 1600, 1200, 1600, 1200));
+    }
+
+    @Test public void headFractionMatchesRealCropBox() {
+        int iw = 3000, ih = 3000;
+        double fh = 360, fw = fh * 0.8;   // yüz kutusu
+        double[] face = {1200, 1000, 1200 + fw, 1000 + fh};
+        double headTop = face[1] - fh * 0.15;
+        double headH = face[3] - headTop;
+        double aspect = fw / headH;
+        double[][] gaps = {{0.03, 0.35, 0.16, 0.16}, {0.03, 0.35, 0.30, 0.30}, {0.05, 0.20, 0.10, 0.10}, {0.03, 0.45, 0.05, 0.35}};
+        for (double[] g : gaps) {
+            Crop.Params p = new Crop.Params();
+            p.topGap = g[0]; p.bottomGap = g[1]; p.leftGap = g[2]; p.rightGap = g[3];
+            double[] b = Crop.defaultCropBox(iw, ih, face, headTop, p);
+            checkBox(b, iw, ih, "headFraction");
+            double actual = headH / (b[3] - b[1]);
+            assertTrue("beklenen " + Crop.headFraction(p, aspect) + " gerçek " + actual,
+                    Math.abs(actual - Crop.headFraction(p, aspect)) < 0.01);
+        }
+    }
+
+    @Test public void widerSideMarginsShrinkHeadFraction() {
+        Crop.Params a = new Crop.Params();
+        Crop.Params b = a.copy();
+        b.leftGap = 0.35; b.rightGap = 0.35;
+        assertTrue(Crop.headFraction(b, Crop.FACE_ASPECT) < Crop.headFraction(a, Crop.FACE_ASPECT));
+        // varsayılan boşluklarda dikey sınır belirleyici: 1 - 0.03 - 0.35
+        Crop.Params d = new Crop.Params();
+        d.topGap = 0.03;
+        assertTrue(Math.abs(Crop.headFraction(d, Crop.FACE_ASPECT) - 0.62) < 1e-9);
+    }
+
+    @Test public void faceIsHorizontallyCenteredWithEqualMargins() {
+        Crop.Params p = new Crop.Params();
+        p.topGap = 0.03;
+        int iw = 3000, ih = 3000;
+        for (double fw : new double[]{200, 300, 450, 600}) {
+            double fh = fw * 1.25;
+            double[] face = {1300, 1000, 1300 + fw, 1000 + fh};
+            double[] b = Crop.defaultCropBox(iw, ih, face, face[1] - fh * 0.15, p);
+            double w = b[2] - b[0];
+            double leftSpace = face[0] - b[0], rightSpace = b[2] - face[2];
+            assertTrue("yüz ortalı olmalı (sol " + leftSpace + ", sağ " + rightSpace + ")", Math.abs(leftSpace - rightSpace) < 0.01 * w);
+        }
+    }
+
+    @Test public void asymmetricMarginsShiftFaceByExpectedAmount() {
+        Crop.Params p = new Crop.Params();
+        p.topGap = 0.03; p.leftGap = 0.25; p.rightGap = 0.10;
+        double[] face = {1300, 1000, 1500, 1250};
+        double[] b = Crop.defaultCropBox(3000, 3000, face, 960, p);
+        double w = b[2] - b[0];
+        double center = ((face[0] + face[2]) / 2 - b[0]) / w;
+        assertTrue("yüz merkezi " + center, Math.abs(center - (1 + 0.25 - 0.10) / 2) < 0.01);
     }
 }

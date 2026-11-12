@@ -7,8 +7,13 @@ import androidx.compose.runtime.setValue
 import com.eokul.studio.core.Crop
 
 data class Settings(
+    /** Saç üstü boşluğu / kırpma yüksekliği. */
     val topGap: Double = 0.03,
-    val headFrac: Double = 0.62,
+    /** Çene altı (göğüs) boşluğu / kırpma yüksekliği. */
+    val bottomGap: Double = 0.35,
+    /** Yüzün solundaki ve sağındaki asgari boşluk / kırpma genişliği. */
+    val leftGap: Double = 0.16,
+    val rightGap: Double = 0.16,
     val jpegQuality: Int = 100,
     val minKb: Int = 20,
     /** Üst dosya boyutu (KB); kalite bu sınıra uyacak şekilde otomatik düşürülür. */
@@ -51,7 +56,9 @@ data class Settings(
     fun cropParams(): Crop.Params {
         val p = Crop.Params()
         p.topGap = topGap
-        p.headFrac = headFrac
+        p.bottomGap = bottomGap
+        p.leftGap = leftGap
+        p.rightGap = rightGap
         p.targetW = photoW
         p.targetH = photoH
         return p
@@ -72,9 +79,15 @@ class Prefs(context: Context) {
             }
         } ?: d.nameRegex
         val outDir = sp.getString("outputDir", null)?.trim()?.takeIf { it.isNotEmpty() } ?: d.outputDir
+        val version = sp.getInt("ver", 1)
+        val savedTop = (if (version < 2) d.topGap else (sp.getString("topGap", null)?.toDoubleOrNull() ?: d.topGap)).coerceIn(0.01, 0.25)
+        val legacyHead = (sp.getString("headFrac", null)?.toDoubleOrNull() ?: 0.62).coerceIn(0.45, 0.80)
+        val migratedBottom = (1.0 - savedTop - legacyHead).coerceIn(0.08, 0.55)
         return Settings(
-            topGap = (if (sp.getInt("ver", 1) < 2) d.topGap else (sp.getString("topGap", null)?.toDoubleOrNull() ?: d.topGap)).coerceIn(0.01, 0.25),
-            headFrac = (sp.getString("headFrac", null)?.toDoubleOrNull() ?: d.headFrac).coerceIn(0.45, 0.80),
+            topGap = savedTop,
+            bottomGap = (sp.getString("bottomGap", null)?.toDoubleOrNull() ?: if (version < 3) migratedBottom else d.bottomGap).coerceIn(0.05, 0.55),
+            leftGap = (sp.getString("leftGap", null)?.toDoubleOrNull() ?: d.leftGap).coerceIn(0.05, 0.40),
+            rightGap = (sp.getString("rightGap", null)?.toDoubleOrNull() ?: d.rightGap).coerceIn(0.05, 0.40),
             jpegQuality = sp.getInt("jpegQuality", d.jpegQuality).coerceIn(70, 100),
             minKb = sp.getInt("minKb", d.minKb).coerceIn(1, 500),
             maxKb = sp.getInt("maxKb", d.maxKb).coerceIn(5, 5000),
@@ -104,7 +117,9 @@ class Prefs(context: Context) {
     fun save(s: Settings) {
         sp.edit()
             .putString("topGap", s.topGap.toString())
-            .putString("headFrac", s.headFrac.toString())
+            .putString("bottomGap", s.bottomGap.toString())
+            .putString("leftGap", s.leftGap.toString())
+            .putString("rightGap", s.rightGap.toString())
             .putInt("jpegQuality", s.jpegQuality)
             .putInt("minKb", s.minKb)
             .putInt("maxKb", s.maxKb)
@@ -128,7 +143,7 @@ class Prefs(context: Context) {
             .putString("pinHash", s.pinHash)
             .putString("pinSalt", s.pinSalt)
             .putLong("lastBackupMs", s.lastBackupMs)
-            .putInt("ver", 2)
+            .putInt("ver", 3)
             .apply()
     }
 }

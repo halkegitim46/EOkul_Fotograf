@@ -11,7 +11,9 @@ public final class Crop {
         public int targetW = 133;
         public int targetH = 171;
         public double topGap = 0.10;         // saç tepesinin üstündeki boşluk / kırpma yüksekliği
-        public double headFrac = 0.62;       // (saç tepesi → çene) / kırpma yüksekliği
+        public double bottomGap = 0.35;      // çene altı boşluğu / kırpma yüksekliği
+        public double leftGap = 0.16;        // yüzün solundaki asgari boşluk / kırpma genişliği
+        public double rightGap = 0.16;       // yüzün sağındaki asgari boşluk / kırpma genişliği
         public double hairAllowance = 0.35;  // saç tepesi bulunamazsa: yüz üstünden yukarı pay (yüz birimi)
         public double hairMin = 0.10;        // baş üstü en az bu kadar yukarıda varsayılır (yüz birimi)
 
@@ -24,7 +26,9 @@ public final class Crop {
             p.targetW = targetW;
             p.targetH = targetH;
             p.topGap = topGap;
-            p.headFrac = headFrac;
+            p.bottomGap = bottomGap;
+            p.leftGap = leftGap;
+            p.rightGap = rightGap;
             p.hairAllowance = hairAllowance;
             p.hairMin = hairMin;
             return p;
@@ -66,6 +70,30 @@ public final class Crop {
      * @param face    {x1,y1,x2,y2} veya yüz yoksa null
      * @param headTop saç tepesi y koordinatı; bilinmiyorsa Double.NaN
      */
+    private static double clamp(double v, double lo, double hi) {
+        return Double.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo;
+    }
+
+    /** ML Kit yüz kutusunun genişlik / (saç dahil baş yüksekliği) oranı için tipik değer. Kılavuz ve yatay boşluk hesabında kullanılır. */
+    public static final double FACE_ASPECT = 0.72;
+
+    /**
+     * Kırpma yüksekliğinin kaçta kaçını baş (saç tepesi - çene) kaplar. Dikey boşluklar (üst+alt) ve yatay boşluklar
+     * (sol+sağ) birlikte karşılandığında daha büyük kutu gereken hangisiyse baş oranı onu izler; çekim kılavuzu bu değeri
+     * kullandığından canlı kılavuz ile çekim sonrası kırpma aynı geometriyi gösterir.
+     */
+    public static double headFraction(Params p, double faceAspect) {
+        double tg = clamp(p.topGap, 0.01, 0.25);
+        double bg = clamp(p.bottomGap, 0.05, 0.55);
+        double lg = clamp(p.leftGap, 0.05, 0.40);
+        double rg = clamp(p.rightGap, 0.05, 0.40);
+        if (tg + bg > 0.85) bg = 0.85 - tg;
+        if (lg + rg > 0.85) rg = 0.85 - lg;
+        double vertical = Math.max(0.10, 1.0 - tg - bg);
+        double horizontal = p.ratio() * Math.max(0.10, 1.0 - lg - rg) / Math.max(0.3, faceAspect);
+        return Math.min(vertical, horizontal);
+    }
+
     public static double[] defaultCropBox(int iw, int ih, double[] face, double headTop, Params p) {
         double ratio = p.ratio();
         if (face == null) {
@@ -79,17 +107,24 @@ public final class Crop {
         double top0 = Double.isNaN(headTop) ? fy1 - u * p.hairAllowance : headTop;
         top0 = Math.min(top0, fy1 - u * p.hairMin);
         double headH = Math.max(fy2 - top0, 1.0);
-        double idealH = headH / p.headFrac;
-        double top = top0 - p.topGap * idealH;
-
-        double fitH = Math.min(Math.min(idealH, iw / ratio), ih);
-        double room = ih - Math.max(top, 0.0);
-        double shrunk = Math.min(fitH, room);
-        double minH = Math.max(Math.max(0.6 * fitH, (fy2 - top) * 1.03), (double) p.targetH);
-        double h = (shrunk >= minH) ? shrunk : fitH;
-        double y1 = Math.min(Math.max(top, 0.0), ih - h);
+        // Dikey ve yatay asgari boşlukların ikisini de karşılayan, hedef oranlı tek kutu.
+        // Kenar boşlukları birbirinden bağımsızdır; dar görüntülerde görüntü sınırı önceliklidir.
+        double tg = clamp(p.topGap, 0.01, 0.25);
+        double bg = clamp(p.bottomGap, 0.05, 0.55);
+        double lg = clamp(p.leftGap, 0.05, 0.40);
+        double rg = clamp(p.rightGap, 0.05, 0.40);
+        if (tg + bg > 0.85) bg = 0.85 - tg;
+        if (lg + rg > 0.85) rg = 0.85 - lg;
+        double verticalH = headH / Math.max(0.10, 1.0 - tg - bg);
+        double faceW = Math.max(1.0, face[2] - face[0]);
+        double horizontalH = faceW / (ratio * Math.max(0.10, 1.0 - lg - rg));
+        double h = Math.max(Math.max(verticalH, horizontalH), p.targetH);
+        h = Math.min(h, Math.min(ih, iw / ratio));
         double w = h * ratio;
-        double x1 = Math.min(Math.max(cx - w / 2.0, 0.0), iw - w);
+        double y1 = top0 - tg * h;
+        // Yatay konum: yüz merkezi, sol/sağ boşluk oranlarına göre kutunun içine yerleşir (eşit boşlukta tam ortada).
+        // (Önceki sürüm yüzü sol boşluğa göre hizalıyordu; kutu yüzden geniş olunca yüz sola yaslanıp sağ taraf boş kalıyordu.)
+        double x1 = cx - w * (1.0 + lg - rg) / 2.0;
         return fitInside(new double[]{x1, y1, x1 + w, y1 + h}, iw, ih, ratio);
     }
 }
