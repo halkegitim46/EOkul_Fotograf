@@ -51,6 +51,7 @@ object Output {
     ): Uri {
         require(name.isNotBlank() && !name.contains('/') && !name.contains('\\')) { "Geçersiz dosya adı" }
         val dir = dirFor(ctx, tree, segments, true) ?: throw IOException("Klasör bulunamadı")
+        cleanupStaleTemps(dir)
         val token = java.util.UUID.randomUUID().toString().replace("-", "")
         val tmpName = ".tmp-$token-$name"
         val backupName = ".old-$token-$name"
@@ -110,7 +111,10 @@ object Output {
             }
 
             if (tmp.renameTo(name)) {
-                destination = dir.findFile(name) ?: throw IOException("Yeni dosya son konumunda bulunamadı")
+                // DocumentFile.renameTo başarılıysa nesnenin URI'si yeni konuma güncellenir; klasörü yeniden taramaya gerek yok
+                // (SAF'ta findFile her çağrıda klasörü listeler, kalabalık sınıf klasörlerinde yavaştır).
+                destination = if (tmp.name == name) tmp else dir.findFile(name)
+                    ?: throw IOException("Yeni dosya son konumunda bulunamadı")
             } else {
                 // Hedef boşken sağlayıcı rename desteklemiyorsa yeni dosyaya kopyalanır.
                 destination = dir.createFile(mime, name)
@@ -118,7 +122,8 @@ object Output {
                 copyDocument(ctx, tmp, destination!!)
             }
 
-            verifyDocument(ctx, destination!!, written)
+            // İçerik geçici dosyada zaten tam okunarak doğrulandı; taşıma sonrası yalnızca varlık ve boyut denetlenir.
+            verifyDocument(ctx, destination!!, written, fullRead = false)
             committed = true
             backup?.delete()
             tmp.delete()
@@ -162,10 +167,29 @@ object Output {
         verifyDocument(ctx, target, copied)
     }
 
-    private fun verifyDocument(ctx: Context, file: DocumentFile, expectedLength: Long) {
+    /** Yarım kalmış yazımlardan artakalan ".tmp-" dosyaları (1 saatten eski) kullanıcının klasöründe birikmesin diye silinir. */
+    private val cleanedDirs = HashSet<String>()
+
+    private fun cleanupStaleTemps(dir: DocumentFile) {
+        // Klasör başına süreç ömründe bir kez: her yazımda klasör listelemek yavaştır.
+        val key = dir.uri.toString()
+        synchronized(cleanedDirs) { if (!cleanedDirs.add(key)) return }
+        try {
+            val limit = System.currentTimeMillis() - 3_600_000L
+            for (f in dir.listFiles()) {
+                val n = f.name ?: continue
+                if (n.startsWith(".tmp-") && f.isFile && f.lastModified() in 1 until limit) f.delete()
+            }
+        } catch (_: Exception) {
+            // temizlik başarısızsa yazma yine de devam eder
+        }
+    }
+
+    private fun verifyDocument(ctx: Context, file: DocumentFile, expectedLength: Long, fullRead: Boolean = true) {
         if (!file.exists() || file.length() != expectedLength) {
             throw IOException("Dosya boyutu doğrulanamadı: ${file.name}")
         }
+        if (!fullRead) return
         var read = 0L
         ctx.contentResolver.openInputStream(file.uri)?.use { input ->
             val buffer = ByteArray(32 * 1024)

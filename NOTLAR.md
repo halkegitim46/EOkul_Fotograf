@@ -120,12 +120,9 @@ Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel ko
 - Ayarlar › "Tanılama ve rapor": "Raporu kaydet" → kayıt klasörüne `Rapor-tarih.txt`; "Kaydı temizle".
 - Düzeltilen hata (testle yakalandı): `OpLog.clear()` kilit tutarken flush bekleyip kilitleniyordu.
 
-## 11 Kas 2026 — Faz 1: veri güvenilirliği (kod güncellemesi; Android derlemesi bekliyor)
-- `Output.kt`: SAF yazımı geçici dosya + geri okuma doğrulaması + eski dosya koruma kopyasıyla yapılır. Rename desteklemeyen sağlayıcıda önce içerik yedeği alınır; geri alma başarısızsa yedek dosya korunur. MediaStore'da yeni `IS_PENDING` kaydı doğrulanmadan eski kayıt silinmez.
-- `Roster.kt`: JSON serileştirme tekleştirildi; hazırlama dosyası `fsync` edilir, `.bak` ve rollback kopyasıyla doğrulamalı commit yapılır.
-- `RestoreTransaction.kt`: `roster.json`, `roster.json.bak` ve `photos/` için PREPARED/COMMITTED işlem günlüğü. Uygulama işlem ortasında kapanırsa başlangıçta eski veri seti geri alınır; COMMITTED ise yeni veri korunup geçici kopyalar temizlenir.
-- `StudioViewModel.kt`: roster snapshot'ları sürümlenir; eski kayıt görevi yeni listeyi ezemez. Fotoğraf dosyası doğrulanmadan `captured=true` diske yazılmaz. Yedek JSON'u aynı snapshot'tan üretilir; yedek manifesti, ZIP yolları, yinelenen girdiler ve boyut sınırları doğrulanır.
-- `MainActivity.kt`: `onStop` sırasında son roster kaydı beklenir; `onCleared` ana thread'de dosya yazmaz.
-- `SettingsScreen.kt`: geri yükleme sırasında ilerleme durumu gösterilir ve gezinme engellenir.
-- Yerel JVM testinde `RestoreTransaction`: başarılı commit, commit hatasında rollback, PREPARED sonrası simüle edilmiş çökme ve COMMITTED sonrası temizlik 4/4 geçti. Bu test Android cihaz testi veya tam Gradle derlemesi yerine geçmez.
-- Bekleyen: CI/Android derlemesi, SAF sağlayıcı matrisi ve gerçek cihazda kesinti testleri.
+## Faz 1 / Faz 2 incelemesi ve rötuşlar
+- Gelen dosyalar (Output, Roster, RestoreTransaction, StudioViewModel, Crop, Prefs, Live, CameraScreen, SettingsScreen) projedekilerle aynıydı; değişiklikler zaten içerideydi. Hepsi korundu.
+- Yedek / rapor dosyaları artık `EOkulStudio_Yedek_YYYY-AA-GG_SS-DD-SS.zip`, `EOkulStudio_GeriYuklemeOncesi_…zip`, `EOkulStudio_Rapor_…txt`. Manifeste `format` ve `appVersion` eklendi. Eski `Yedek-….zip` dosyaları hâlâ geri yüklenir (denetim içeriğe bakar).
+- Output.writeStream: taşıma sonrası ikinci tam okuma kaldırıldı (yalnızca varlık+boyut), rename sonrası klasör yeniden taranmıyor, 1 saatten eski `.tmp-` artıkları klasör başına bir kez temizleniyor.
+- `Crop.headFraction`: baş oranı dikey ve yatay boşluklardan hangisi belirleyiciyse onu izler; `guideFor` ve `GuideOverlay` aynı kaynağı kullanır (canlı kılavuz = çekim sonrası kırpma). Testli.
+- Ayarlar: sol/sağ boşluk "gelişmiş" altına alındı.

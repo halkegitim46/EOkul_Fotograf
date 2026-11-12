@@ -45,6 +45,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     var restoreInfo by remember { mutableStateOf<StudioViewModel.BackupInfo?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var advanced by remember { mutableStateOf(false) }
+    var sideGaps by remember { mutableStateOf(false) }
     var pinOpen by remember { mutableStateOf(false) }
     val restorePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) scope.launch {
@@ -61,7 +62,9 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
     val def = Settings()
 
     var topGap by remember { mutableStateOf(cur.topGap.toFloat()) }
-    var headFrac by remember { mutableStateOf(cur.headFrac.toFloat()) }
+    var bottomGap by remember { mutableStateOf(cur.bottomGap.toFloat()) }
+    var leftGap by remember { mutableStateOf(cur.leftGap.toFloat()) }
+    var rightGap by remember { mutableStateOf(cur.rightGap.toFloat()) }
     var quality by remember { mutableStateOf(cur.jpegQuality.toFloat()) }
     var minKb by remember { mutableStateOf(cur.minKb.toString()) }
     var maxKb by remember { mutableStateOf(cur.maxKb.toString()) }
@@ -117,7 +120,9 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             autoAccept = autoAcc,
             autoAcceptScore = accScore.roundToInt().coerceIn(60, 95),
             topGap = (topGap * 100.0).roundToInt() / 100.0,
-            headFrac = (headFrac * 100.0).roundToInt() / 100.0,
+            bottomGap = (bottomGap * 100.0).roundToInt() / 100.0,
+            leftGap = (leftGap * 100.0).roundToInt() / 100.0,
+            rightGap = (rightGap * 100.0).roundToInt() / 100.0,
             jpegQuality = quality.roundToInt(),
             minKb = kb,
             maxKb = mkb,
@@ -246,17 +251,29 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(12.dp))
-        Text("Baş boyutu: %${(headFrac * 100).roundToInt()}", style = MaterialTheme.typography.bodyMedium)
-        Slider(value = headFrac, onValueChange = { headFrac = it }, valueRange = 0.50f..0.75f, steps = 24)
-        Text(
-            "Saç tepesi ile çene arasındaki mesafenin kırpmaya oranı. Yüz çok büyük çıkıyorsa azaltın, " +
-                "küçük kalıyorsa artırın.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text("Çene altı / göğüs boşluğu: %${(bottomGap * 100).roundToInt()}", style = MaterialTheme.typography.bodyMedium)
+        Slider(value = bottomGap, onValueChange = { bottomGap = it }, valueRange = 0.10f..0.50f, steps = 39)
+        Text("Bu ayar artırıldığında kadraj aşağı doğru genişler; omuz ve göğüs bölgesine daha fazla alan bırakılır.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { sideGaps = !sideGaps }) {
+            Text(if (sideGaps) "▾ Yan boşlukları gizle" else "▸ Yan boşluklar (sol / sağ, gelişmiş)")
+        }
+        if (sideGaps) {
+            Text("Sol boşluk: %${(leftGap * 100).roundToInt()}", style = MaterialTheme.typography.bodyMedium)
+            Slider(value = leftGap, onValueChange = { leftGap = it }, valueRange = 0.05f..0.35f, steps = 29)
+            Text("Sağ boşluk: %${(rightGap * 100).roundToInt()}", style = MaterialTheme.typography.bodyMedium)
+            Slider(value = rightGap, onValueChange = { rightGap = it }, valueRange = 0.05f..0.35f, steps = 29)
+            Text(
+                "Sol ve sağ boşluk yüzün yanlarındaki asgari payı belirler (fotoğraf genişliğinin oranı). Büyütürseniz baş biraz küçülür; " +
+                    "çekim kılavuzu da buna göre güncellenir. Görüntü sınırı izin vermiyorsa boşluklar otomatik daralır.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.size(6.dp))
         OutlinedButton(onClick = {
             topGap = def.topGap.toFloat()
-            headFrac = def.headFrac.toFloat()
+            bottomGap = def.bottomGap.toFloat()
+            leftGap = def.leftGap.toFloat()
+            rightGap = def.rightGap.toFloat()
         }) { Text("Kırpma varsayılanları") }
 
         }
@@ -347,7 +364,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
                 AppButton("Kaydı temizle", onClick = { studio.clearOpsLog() }, style = BtnStyle.Secondary, modifier = Modifier.weight(1f))
             }
             Text(
-                "Rapor kayıt klasörüne Rapor-tarih.txt olarak yazılır.",
+                "Rapor kayıt klasörüne EOkulStudio_Rapor_tarih.txt olarak yazılır.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp)
             )
@@ -377,7 +394,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
             modifier = Modifier.padding(top = 6.dp)
         )
         Text(
-            "Yedek: sınıf listeleri ve küçük fotoğraflar kayıt klasörüne Yedek-tarih.zip olarak yazılır ve yazıldıktan sonra doğrulanır. Tam çözünürlüklü orijinaller yedeğe girmez.",
+            "Yedek: sınıf listeleri ve küçük fotoğraflar kayıt klasörüne EOkulStudio_Yedek_tarih.zip olarak yazılır ve yazıldıktan sonra doğrulanır. Tam çözünürlüklü orijinaller yedeğe girmez.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.size(10.dp))
@@ -387,7 +404,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
                 "2. Yedek dosyası kayıt klasörünüzde durur; uygulamayı silmek onu silmez.\n" +
                 "3. Eski uygulamayı kaldırıp yeni APK’yı kurun (imza değiştiyse güncelleme üstüne kurulmaz).\n" +
                 "4. Açılışta aynı kayıt klasörünü yeniden seçin.\n" +
-                "5. “Geri yükle” ile Yedek-….zip dosyasını seçin; içeriği önce gösterilir, geri yüklemeden önce mevcut verinin ayrı bir kopyası otomatik alınır.",
+                "5. “Geri yükle” ile EOkulStudio_Yedek_….zip dosyasını seçin; içeriği önce gösterilir, geri yüklemeden önce mevcut verinin ayrı bir kopyası otomatik alınır.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         }
@@ -460,7 +477,7 @@ fun SettingsScreen(vm: AppViewModel, studio: StudioViewModel, showRecrop: Boolea
                     else "") +
                         "Şu an uygulamada: ${studio.classes.size} sınıf · ${studio.classes.sumOf { it.students.size }} öğrenci\n\n" +
                         "Uygulamadaki tüm sınıf listeleri ve küçük fotoğraflar yedekteki ile DEĞİŞTİRİLİR. " +
-                        "Değiştirmeden önce mevcut verinin ayrı bir kopyası (Geri-yukleme-oncesi-….zip) kayıt klasörüne otomatik alınır."
+                        "Değiştirmeden önce mevcut verinin ayrı bir kopyası (EOkulStudio_GeriYuklemeOncesi_….zip) kayıt klasörüne otomatik alınır."
                 )
             },
             confirmButton = {

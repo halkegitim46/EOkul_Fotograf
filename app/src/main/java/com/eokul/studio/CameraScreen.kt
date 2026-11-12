@@ -807,12 +807,12 @@ private fun GuideOverlay(s: Settings) {
     Canvas(Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
-        // Kırpma alanı: genişliğin %88'i, 133:171 oranında
-        val cw = w * 0.88f
-        val ch = (cw * TARGET_H / TARGET_W).coerceAtMost(h * 0.96f)
-        val cwAdj = ch * TARGET_W / TARGET_H
-        val left = (w - cwAdj) / 2f
-        val top = (h - ch) / 2f
+        // Kırpma alanı ve baş çizgileri canlı değerlendirmeyle aynı kaynaktan (guideFor) gelir.
+        val g = guideFor(w, h, s)
+        val cwAdj = g.width
+        val ch = g.height
+        val left = g.left
+        val top = g.top
 
         val dim = Color.Black.copy(alpha = 0.40f)
         drawRect(dim, Offset(0f, 0f), Size(w, top))
@@ -822,8 +822,8 @@ private fun GuideOverlay(s: Settings) {
         drawRect(Color.White.copy(alpha = 0.8f), Offset(left, top), Size(cwAdj, ch), style = Stroke(width = 2f))
 
         // Saç tepesi ve çene çizgileri
-        val hairY = top + ch * s.topGap.toFloat()
-        val chinY = hairY + ch * s.headFrac.toFloat()
+        val hairY = g.hairY
+        val chinY = g.chinY
         val headH = chinY - hairY
         val headW = headH * 0.74f
         val cx = w / 2f

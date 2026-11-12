@@ -12,7 +12,7 @@ public class FramingTest {
     private double[] defaultBox(double headTop) {
         Crop.Params p = new Crop.Params();
         p.topGap = 0.03;
-        p.headFrac = 0.62;
+        p.bottomGap = 0.35;
         p.hairMin = 0.01;
         return Crop.defaultCropBox(1200, 1600, FACE, headTop, p);
     }

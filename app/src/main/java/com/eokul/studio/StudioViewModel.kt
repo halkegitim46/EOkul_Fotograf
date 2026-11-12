@@ -835,8 +835,12 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun stampSec(): String =
-        java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+    /**
+     * Uygulamanın kayıt klasörüne yazdığı dosyalar tek bir önekle ayırt edilir (başka programların yedekleriyle karışmasın):
+     * EOkulStudio_Yedek_2026-11-12_06-39-10.zip. Eski "Yedek-….zip" dosyaları geri yüklenebilir (içerik denetimi addan bağımsızdır).
+     */
+    private fun artifactName(kind: String, ext: String): String =
+        "EOkulStudio_${kind}_" + java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.US).format(java.util.Date()) + "." + ext
 
     /** Yedek ZIP'inin özeti (geri yüklemeden önce kullanıcıya gösterilir). */
     data class BackupInfo(val classes: Int, val students: Int, val captured: Int, val photos: Int, val createdMs: Long?)
@@ -923,14 +927,15 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             val captured = snap.sumOf { c -> c.students.count { it.captured } }
             val manifest = org.json.JSONObject()
                 .put("app", "E-Okul Foto Studio")
+                .put("format", 1)
+                .put("appVersion", try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "" } catch (_: Exception) { "" })
                 .put("created", System.currentTimeMillis())
                 .put("classes", snap.size)
                 .put("students", snap.sumOf { it.students.size })
                 .put("captured", captured)
                 .put("photos", photos.size)
                 .toString()
-            val suffix = java.util.UUID.randomUUID().toString().take(6)
-            val n = "$prefix${stampSec()}-$suffix.zip"
+            val n = artifactName(prefix, "zip")
             val uri = Output.writeStream(ctx, root, emptyList(), n, "application/zip") { out ->
                 java.util.zip.ZipOutputStream(out).use { zip ->
                     zip.putNextEntry(java.util.zip.ZipEntry("yedek.json"))
@@ -992,7 +997,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             Triple(n, photos.size, captured)
         }
 
-    /** Tanılama raporunu kayıt klasörüne Rapor-tarih.txt olarak yazar (öğrenci adı içermez). */
+    /** Tanılama raporunu kayıt klasörüne EOkulStudio_Rapor_tarih.txt olarak yazar (öğrenci adı içermez). */
     fun exportReport() {
         val rootStr = settings.rootUri
         if (rootStr == null) {
@@ -1002,7 +1007,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val root = Uri.parse(rootStr)
         viewModelScope.launch {
             try {
-                val name = "Rapor-" + java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.ROOT).format(java.util.Date()) + ".txt"
+                val name = artifactName("Rapor", "txt")
                 withContext(Dispatchers.IO) {
                     val text = Ops.reportText()
                     Output.writeStream(ctx, root, emptyList(), name, "text/plain") { it.write(text.toByteArray(Charsets.UTF_8)) }
@@ -1022,7 +1027,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         say("İşlem kaydı temizlendi")
     }
 
-    /** Sınıf listesi + küçük fotoğraflar: kayıt klasörüne Yedek-tarih.zip (akış tabanlı, doğrulamalı). */
+    /** Sınıf listesi + küçük fotoğraflar: kayıt klasörüne EOkulStudio_Yedek_tarih.zip (akış tabanlı, doğrulamalı). */
     fun backup() {
         val rootStr = settings.rootUri
         if (rootStr == null) {
@@ -1035,7 +1040,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 saveMutex.withLock {
                 val tb = android.os.SystemClock.elapsedRealtime()
                 val snap = stableRosterSnapshot()
-                val name = writeBackup(root, snap, "Yedek-")
+                val name = writeBackup(root, snap, "Yedek")
                 Ops.log("op", "name", "backup", "ok", true, "ms", android.os.SystemClock.elapsedRealtime() - tb, "n", name.second)
                 SettingsState.update(settings.copy(lastBackupMs = System.currentTimeMillis()))
                 say("✓ Yedek alındı ve doğrulandı: ${name.first}\n${name.second} fotoğraf · ${name.third} çekilmiş öğrenci.\n" +
@@ -1076,7 +1081,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                         "Önce kayıt klasörünü seçin (geri yükleme öncesinde mevcut verinin güvenlik yedeği alınır)"
                     )
                     safety = withContext(Dispatchers.IO) {
-                        writeBackup(Uri.parse(rootStr), classes.toList(), "Geri-yukleme-oncesi-").first
+                        writeBackup(Uri.parse(rootStr), classes.toList(), "GeriYuklemeOncesi").first
                     }
                 }
 
