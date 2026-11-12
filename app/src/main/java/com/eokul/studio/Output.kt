@@ -59,6 +59,9 @@ object Output {
         var backup: DocumentFile? = null
         var destination: DocumentFile? = null
         var committed = false
+        // DocumentFile.renameTo başarılı olunca nesnenin URI'si YENİ dosyaya taşınır. Bundan sonra tmp.delete() çağrılırsa
+        // yeni yazılan nihai dosya silinir. Bu bayrak, tmp nesnesi artık nihai dosya olduğunda onu silmeyi engeller.
+        var tmpRenamed = false
         try {
             var written = 0L
             val raw = ctx.contentResolver.openOutputStream(tmp.uri, "wt")
@@ -111,6 +114,7 @@ object Output {
             }
 
             if (tmp.renameTo(name)) {
+                tmpRenamed = true
                 // DocumentFile.renameTo başarılıysa nesnenin URI'si yeni konuma güncellenir; klasörü yeniden taramaya gerek yok
                 // (SAF'ta findFile her çağrıda klasörü listeler, kalabalık sınıf klasörlerinde yavaştır).
                 destination = if (tmp.name == name) tmp else dir.findFile(name)
@@ -126,7 +130,8 @@ object Output {
             verifyDocument(ctx, destination!!, written, fullRead = false)
             committed = true
             backup?.delete()
-            tmp.delete()
+            // Kopyalama yolunda geçici dosya artık gereksiz; rename yolunda tmp zaten nihai dosyadır, silinmez.
+            if (!tmpRenamed) try { tmp.delete() } catch (_: Exception) { }
             return destination!!.uri
         } catch (e: Exception) {
             if (!committed) {
@@ -144,7 +149,7 @@ object Output {
             throw e
         } finally {
             if (!committed) {
-                try { tmp.delete() } catch (_: Exception) { }
+                if (!tmpRenamed) try { tmp.delete() } catch (_: Exception) { }
             }
         }
     }

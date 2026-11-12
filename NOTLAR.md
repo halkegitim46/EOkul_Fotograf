@@ -134,3 +134,10 @@ Kayıtlı kırpma kutusu çekim anındaki çalışma görüntüsünün piksel ko
 
 ## Veri denetimi: kayıt klasörü kontrolü
 - Ana ekran > Araçlar > "🩺 Veri denetimi" artık kayıt klasörünü de okur (değiştirmez): sınıf klasörü var mı, çekilmiş öğrencilerin fotoğrafı/orijinali klasörde mi, yarım kalmış `.tmp-`/`.old-` gizli dosya var mı. Klasör yoksa kökteki adlar listelenir.
+
+## KRİTİK hata: kayıt klasörüne yazılan dosya hemen siliniyordu (Faz 1 Output.writeStream)
+- Belirti: Veri denetimi 5G klasöründe 25 çekilmiş öğrenci için 25 fotoğraf + 25 orijinal eksik gösterdi, oysa günlükte tüm `save` olayları ok=true idi (uygulama içi kopya yazıldığı için küçük resimler görünüyordu).
+- Neden: `DocumentFile.renameTo` başarılı olunca nesnenin URI'si yeni dosyaya taşınır; ardından çağrılan `tmp.delete()` yeni yazılan nihai dosyayı siliyordu. (Rename desteklenmeyen sağlayıcıda sorun yoktu.)
+- Düzeltme: `tmpRenamed` bayrağı; rename sonrası tmp nesnesi hiçbir yolda silinmez.
+- Onarım: Ana ekran > Araçlar > "🛠 Eksik klasör dosyalarını onar" eksik fotoğrafları uygulama içi 133x171 kopyadan yeniden yazar. Orijinaller geri getirilemez (yeniden çekim gerekir).
+- Ders: SAF yazım davranışı yalnızca cihazda doğrulanabilir; Veri denetimi klasör kontrolü bu hatayı yakaladı.

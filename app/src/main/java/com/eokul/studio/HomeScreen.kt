@@ -87,6 +87,10 @@ fun HomeScreen(studio: StudioViewModel) {
                                 toolsMenu = false
                                 studio.exportAllFoldersZip()
                             })
+                            DropdownMenuItem(text = { Text("🛠 Eksik klasör dosyalarını onar") }, enabled = studio.classes.isNotEmpty(), onClick = {
+                                toolsMenu = false
+                                studio.repairFolderFiles()
+                            })
                             DropdownMenuItem(text = { Text("🩺 Veri denetimi") }, enabled = studio.classes.isNotEmpty(), onClick = {
                                 toolsMenu = false
                                 studio.auditData()

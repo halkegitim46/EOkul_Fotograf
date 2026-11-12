@@ -1323,6 +1323,53 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         return lines.joinToString("\n")
     }
 
+    /**
+     * Kayıt klasöründe eksik olan fotoğrafları uygulama içindeki 133x171 kopyadan yeniden yazar (orijinaller geri getirilemez).
+     * Önceki bir hata nedeniyle yazıldıktan hemen sonra silinen dosyalar için.
+     */
+    fun repairFolderFiles() {
+        val rootStr = settings.rootUri ?: run { say("Önce kayıt klasörünü seçin"); return }
+        val root = Uri.parse(rootStr)
+        val snap = classes.toList()
+        viewModelScope.launch {
+            val (fixed, lost) = withContext(Dispatchers.IO) {
+                saveMutex.withLock {
+                    var fixed = 0
+                    var lost = 0
+                    for (c in snap) {
+                        val dirName = RosterParser.sanitizeFileName(c.name)
+                        val have = (Output.listNames(ctx, root, listOf(dirName)) ?: emptyList()).toHashSet()
+                        for (s in c.students) {
+                            if (!s.captured) continue
+                            val stem = s.savedStem ?: RosterParser.studentStem(s.no, s.name)
+                            if ("$stem.jpg" in have) continue
+                            val priv = Naming.privatePhoto(ctx, c.id, s.no)
+                            if (!priv.exists() || priv.length() <= 0L) { lost++; continue }
+                            try {
+                                Output.writeStream(ctx, root, listOf(dirName), "$stem.jpg", "image/jpeg") { out ->
+                                    priv.inputStream().use { it.copyTo(out) }
+                                }
+                                fixed++
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Throwable) {
+                                Ops.error("repair", e)
+                                lost++
+                            }
+                        }
+                    }
+                    fixed to lost
+                }
+            }
+            Ops.log("op", "name", "repair", "ok", lost == 0, "n", fixed, "err", if (lost > 0) "lost=$lost" else null)
+            say(
+                if (fixed == 0 && lost == 0) "Kayıt klasöründe eksik fotoğraf yok."
+                else "✓ $fixed fotoğraf kayıt klasörüne yeniden yazıldı." + (if (lost > 0) " $lost öğrenci için kopya bulunamadı; yeniden çekin." else "") +
+                    " Orijinaller geri getirilemez; “Kırpmayı düzenle” için yeniden çekin."
+            )
+        }
+    }
+
     /** Adı değişen öğrencilerin kayıt klasöründeki dosya adlarını güncel ad soyada göre yeniden adlandırır. */
     fun staleNameCount(classId: String): Int {
         val c = classById(classId) ?: return 0
