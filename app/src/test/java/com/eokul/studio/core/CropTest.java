@@ -125,10 +125,10 @@ public class CropTest {
         Crop.Params b = a.copy();
         b.leftGap = 0.35; b.rightGap = 0.35;
         assertTrue(Crop.headFraction(b, Crop.FACE_ASPECT) < Crop.headFraction(a, Crop.FACE_ASPECT));
-        // varsayılan boşluklarda dikey sınır belirleyici: 1 - 0.03 - 0.35
+        // varsayılan boşluklarda dikey sınır belirleyici: 1 - 0.03 - 0.27
         Crop.Params d = new Crop.Params();
         d.topGap = 0.03;
-        assertTrue(Math.abs(Crop.headFraction(d, Crop.FACE_ASPECT) - 0.62) < 1e-9);
+        assertTrue(Math.abs(Crop.headFraction(d, Crop.FACE_ASPECT) - 0.70) < 1e-9);
     }
 
     @Test public void faceIsHorizontallyCenteredWithEqualMargins() {

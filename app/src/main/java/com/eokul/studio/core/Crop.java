@@ -11,9 +11,9 @@ public final class Crop {
         public int targetW = 133;
         public int targetH = 171;
         public double topGap = 0.10;         // saç tepesinin üstündeki boşluk / kırpma yüksekliği
-        public double bottomGap = 0.35;      // çene altı boşluğu / kırpma yüksekliği
-        public double leftGap = 0.16;        // yüzün solundaki asgari boşluk / kırpma genişliği
-        public double rightGap = 0.16;       // yüzün sağındaki asgari boşluk / kırpma genişliği
+        public double bottomGap = 0.27;      // çene altı boşluğu / kırpma yüksekliği
+        public double leftGap = 0.12;        // yüzün solundaki asgari boşluk / kırpma genişliği
+        public double rightGap = 0.12;       // yüzün sağındaki asgari boşluk / kırpma genişliği
         public double hairAllowance = 0.35;  // saç tepesi bulunamazsa: yüz üstünden yukarı pay (yüz birimi)
         public double hairMin = 0.10;        // baş üstü en az bu kadar yukarıda varsayılır (yüz birimi)
 

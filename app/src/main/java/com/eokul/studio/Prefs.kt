@@ -10,10 +10,10 @@ data class Settings(
     /** Saç üstü boşluğu / kırpma yüksekliği. */
     val topGap: Double = 0.03,
     /** Çene altı (göğüs) boşluğu / kırpma yüksekliği. */
-    val bottomGap: Double = 0.35,
+    val bottomGap: Double = 0.27,
     /** Yüzün solundaki ve sağındaki asgari boşluk / kırpma genişliği. */
-    val leftGap: Double = 0.16,
-    val rightGap: Double = 0.16,
+    val leftGap: Double = 0.12,
+    val rightGap: Double = 0.12,
     val jpegQuality: Int = 100,
     val minKb: Int = 20,
     /** Üst dosya boyutu (KB); kalite bu sınıra uyacak şekilde otomatik düşürülür. */
@@ -87,9 +87,9 @@ class Prefs(context: Context) {
         val migratedBottom = (1.0 - savedTop - legacyHead).coerceIn(0.08, 0.55)
         return Settings(
             topGap = savedTop,
-            bottomGap = (sp.getString("bottomGap", null)?.toDoubleOrNull() ?: if (version < 3) migratedBottom else d.bottomGap).coerceIn(0.05, 0.55),
-            leftGap = (sp.getString("leftGap", null)?.toDoubleOrNull() ?: d.leftGap).coerceIn(0.05, 0.40),
-            rightGap = (sp.getString("rightGap", null)?.toDoubleOrNull() ?: d.rightGap).coerceIn(0.05, 0.40),
+            bottomGap = (sp.getString("bottomGap", null)?.toDoubleOrNull() ?: if (version < 3) migratedBottom else d.bottomGap).let { if (version < 4) d.bottomGap else it }.coerceIn(0.05, 0.55),
+            leftGap = (if (version < 4) d.leftGap else (sp.getString("leftGap", null)?.toDoubleOrNull() ?: d.leftGap)).coerceIn(0.05, 0.40),
+            rightGap = (if (version < 4) d.rightGap else (sp.getString("rightGap", null)?.toDoubleOrNull() ?: d.rightGap)).coerceIn(0.05, 0.40),
             jpegQuality = sp.getInt("jpegQuality", d.jpegQuality).coerceIn(70, 100),
             minKb = sp.getInt("minKb", d.minKb).coerceIn(1, 500),
             maxKb = sp.getInt("maxKb", d.maxKb).coerceIn(5, 5000),
@@ -147,7 +147,7 @@ class Prefs(context: Context) {
             .putString("pinHash", s.pinHash)
             .putString("pinSalt", s.pinSalt)
             .putLong("lastBackupMs", s.lastBackupMs)
-            .putInt("ver", 3)
+            .putInt("ver", 4)
             .apply()
     }
 }

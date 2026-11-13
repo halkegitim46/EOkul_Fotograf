@@ -1012,7 +1012,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                     zip.write(rosterBytes)
                     zip.closeEntry()
                     for (f in photos) {
-                        val rel = f.relativeTo(ctx.filesDir).path.replace('\\', '/')
+                        val rel = f.relativeTo(photosDir.parentFile!!).path.replace('\\', '/')
                         zip.putNextEntry(java.util.zip.ZipEntry(rel))
                         f.inputStream().use { it.copyTo(zip) }
                         zip.closeEntry()
@@ -1028,7 +1028,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                 val expectedNames = HashSet<String>().apply {
                     add("yedek.json")
                     add("roster.json")
-                    photos.forEach { add(it.relativeTo(ctx.filesDir).path.replace('\\', '/')) }
+                    photos.forEach { add(it.relativeTo(photosDir.parentFile!!).path.replace('\\', '/')) }
                 }
                 ctx.contentResolver.openInputStream(uri)?.use { ins ->
                     java.util.zip.ZipInputStream(ins).use { z ->

@@ -162,3 +162,9 @@ Kapsam: Output, StudioViewModel (kayıt/geri alma/PIN), CameraScreen, ReviewScre
 - Bilinen sınırlar: SAF yazım/rename davranışı sağlayıcıya göre değişir ve yalnızca cihazda doğrulanabilir; Kotlin bu ortamda derlenemiyor. Yedeklenen roster'daki `origUri` alanı doğrulanmadan kullanılır (yalnızca uygulamanın izinli URI'lerine erişebilir; düşük risk).
 
 - CI (yeşil) derleme günlüğündeki 5 derleyici uyarısı giderildi (gereksiz `!!` ve Elvis).
+
+## Daha yakın kadraj
+Varsayılan bottomGap 0.35→0.27, yan boşluklar 0.16→0.12 (baş oranı ~%62→%70). Prefs ver=4: eski kayıtlı boşluklar varsayılana sıfırlanır.
+
+## Yedek zip yolu hatasi (13 Kas)
+photosDir canonicalFile (/data/data/..) iken relativeTo(ctx.filesDir) (/data/user/0/..) "../../../../data/.." girdi adi uretiyordu; Android ZipInputStream "Invalid zip entry path" ile reddediyordu. Artik photosDir.parentFile ile goreli.
