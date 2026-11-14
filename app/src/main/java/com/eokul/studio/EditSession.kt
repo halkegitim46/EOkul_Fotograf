@@ -63,6 +63,20 @@ class EditSession(val name: String) {
         box = Box.of(Crop.fitInside(Crop.fromCenter(ncx, ncy, newW, RATIO), iw, ih, RATIO))
     }
 
+    /**
+     * Yakın / Uzak düğmeleri: kutuyu yüzün merkezi etrafında ölçekler; yüz kadraj içindeki yerinde kalır.
+     * Kutuya en yakın yüz seçilir; yüz yoksa kutu merkezi kullanılır.
+     */
+    fun zoomOnFace(factor: Double) {
+        val f = faces.minByOrNull { abs(it.box.cx - box.cx) + abs(it.box.cy - box.cy) }
+        if (f == null) {
+            zoom(factor, box.cx, box.cy)
+            return
+        }
+        val top = if (f.headTop.isNaN()) f.box.y1 else min(f.headTop, f.box.y1)
+        zoom(factor, f.box.cx, (top + f.box.y2) / 2.0)
+    }
+
     fun moveBox(b: Box) {
         push(box, false)
         box = b.fitInside(iw, ih)

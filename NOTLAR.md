@@ -168,3 +168,6 @@ Varsayılan bottomGap 0.35→0.27, yan boşluklar 0.16→0.12 (baş oranı ~%62�
 
 ## Yedek zip yolu hatasi (13 Kas)
 photosDir canonicalFile (/data/data/..) iken relativeTo(ctx.filesDir) (/data/user/0/..) "../../../../data/.." girdi adi uretiyordu; Android ZipInputStream "Invalid zip entry path" ile reddediyordu. Artik photosDir.parentFile ile goreli.
+
+## Yakin/Uzak yuze gore (14 Kas)
+EditSession.zoomOnFace: Yakin/Uzak dugmeleri kutuyu kutu merkezi yerine en yakin yuzun merkezi (sac tepesi-cene ortasi) etrafinda olcekler. Cimdik hareketi degismedi.

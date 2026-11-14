@@ -288,8 +288,8 @@ fun EditorContent(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppButton("Uzak", onClick = { s.zoom(1.06, s.box.cx, s.box.cy) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
-                AppButton("Yakın", onClick = { s.zoom(0.94, s.box.cx, s.box.cy) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
+                AppButton("Uzak", onClick = { s.zoomOnFace(1.06) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
+                AppButton("Yakın", onClick = { s.zoomOnFace(0.94) }, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
                 AppButton("Geri", onClick = { s.undo() }, enabled = s.canUndo, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1f))
                 AppButton("Yüze dön", onClick = onResetFace, enabled = !s.loading, style = BtnStyle.Secondary, dark = true, compact = true, modifier = Modifier.weight(1.2f))
             }
